@@ -1,26 +1,38 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-brand: #e07a4f;
+  --color-brand-dark: #c4623a;
+  --color-brand-light: #fdf0ea;
+  --color-accent: #2d4a6f;
+  --color-accent-dark: #1e3349;
+  --color-surface: #f7f4ef;
+  --color-surface-2: #efeae2;
+  --color-ink: #1a2332;
+  --color-muted: #6b7280;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+}
+
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+/* 横向滚动分类/新品 */
+.scroll-rail {
+  scrollbar-width: thin;
+  scrollbar-color: #d1cdc7 transparent;
+}
+
+.scroll-rail::-webkit-scrollbar {
+  height: 6px;
+}
+
+.scroll-rail::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d1cdc7;
 }
