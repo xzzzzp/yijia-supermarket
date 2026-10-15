@@ -48,6 +48,7 @@ type TranslationKey =
   | "customerPhone"
   | "customerAddress"
   | "note"
+  | "contactRequired"
   | "orderSuccess"
   | "noProducts"
   | "sortBy"
@@ -99,6 +100,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerPhone: "Телефон",
     customerAddress: "Адрес доставки",
     note: "Комментарий",
+    contactRequired: "Укажите имя, телефон и адрес доставки",
     orderSuccess: "Заказ отправлен",
     noProducts: "Товары не найдены",
     sortBy: "Сортировка",
@@ -149,6 +151,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerPhone: "Telefon",
     customerAddress: "Yetkazib berish manzili",
     note: "Izoh",
+    contactRequired: "Ism, telefon va manzilni kiriting",
     orderSuccess: "Buyurtma yuborildi",
     noProducts: "Mahsulot topilmadi",
     sortBy: "Saralash",
@@ -199,6 +202,7 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerPhone: "电话",
     customerAddress: "配送地址",
     note: "备注",
+    contactRequired: "请填写姓名、电话和配送地址",
     orderSuccess: "订单已提交",
     noProducts: "未找到商品",
     sortBy: "排序",

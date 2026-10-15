@@ -96,8 +96,20 @@ export function parseStoreSettingsForm(formData: FormData): StoreSettings {
   });
 }
 
+/** 塔什干当地小时（0–23）。部分运行时在午夜会给出 24，这里折回 0。 */
+export function getTashkentHour(date = new Date()): number {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tashkent",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+  const value = Number(hour);
+  if (!Number.isFinite(value)) return 0;
+  return value % 24;
+}
+
 export function isStoreOpenNow(settings: Pick<StoreSettings, "businessHoursOpen" | "businessHoursClose">): boolean {
-  const hour = new Date().getHours();
+  const hour = getTashkentHour();
   const { businessHoursOpen: open, businessHoursClose: close } = settings;
   return hour >= open || hour < close;
 }

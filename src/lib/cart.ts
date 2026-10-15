@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import type { CartItem } from "@/types/order";
 
 const CART_KEY = "yijia-cart";
@@ -42,14 +43,67 @@ function removeStorage(key: string): void {
   }
 }
 
+const EMPTY_CART: CartItem[] = [];
+let cachedRaw: string | null = null;
+let cachedItems: CartItem[] = EMPTY_CART;
+let cacheReady = false;
+
 export function getCart(): CartItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = readStorage(CART_KEY);
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
-  } catch {
-    return [];
+  if (typeof window === "undefined") return EMPTY_CART;
+  return getCartSnapshot();
+}
+
+export function getCartSnapshot(): CartItem[] {
+  const raw = readStorage(CART_KEY);
+  if (cacheReady && raw === cachedRaw) return cachedItems;
+
+  cacheReady = true;
+  cachedRaw = raw;
+  if (!raw) {
+    cachedItems = EMPTY_CART;
+    return cachedItems;
   }
+
+  try {
+    const parsed = JSON.parse(raw) as CartItem[];
+    cachedItems = Array.isArray(parsed) ? parsed : EMPTY_CART;
+  } catch {
+    cachedItems = EMPTY_CART;
+  }
+  return cachedItems;
+}
+
+function subscribeCart(onStoreChange: () => void): () => void {
+  window.addEventListener("cart-updated", onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener("cart-updated", onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getServerCartSnapshot(): CartItem[] {
+  return EMPTY_CART;
+}
+
+export function useCart(): CartItem[] {
+  return useSyncExternalStore(subscribeCart, getCartSnapshot, getServerCartSnapshot);
+}
+
+export function useCartCount(): number {
+  return useSyncExternalStore(
+    subscribeCart,
+    () => getCartSnapshot().reduce((sum, item) => sum + item.quantity, 0),
+    () => 0,
+  );
+}
+
+export function useProductQuantity(productId: string): number {
+  return useSyncExternalStore(
+    subscribeCart,
+    () => getCartSnapshot().find((item) => item.productId === productId)?.quantity ?? 0,
+    () => 0,
+  );
 }
 
 export function saveCart(items: CartItem[]): void {
@@ -58,8 +112,8 @@ export function saveCart(items: CartItem[]): void {
 }
 
 export function addToCart(productId: string, quantity = 1): CartItem[] {
-  const cart = getCart();
-  const existing = cart.find((i) => i.productId === productId);
+  const cart = getCart().map((item) => ({ ...item }));
+  const existing = cart.find((item) => item.productId === productId);
 
   if (existing) {
     existing.quantity += quantity;

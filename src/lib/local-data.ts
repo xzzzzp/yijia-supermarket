@@ -46,6 +46,7 @@ export async function readLocalOrders(): Promise<OrderRecord[]> {
         customerAddress: order.customerAddress,
         note: order.note,
         orderText: order.orderText ?? "",
+        requestToken: order.requestToken ?? null,
         createdAt: order.createdAt ?? new Date().toISOString(),
         completedAt: order.completedAt,
       }),

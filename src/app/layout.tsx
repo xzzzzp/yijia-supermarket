@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Outfit, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { fetchStoreSettings } from "@/lib/settings.server";
@@ -11,7 +12,7 @@ const outfit = Outfit({
 });
 
 const sourceSans = Source_Sans_3({
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   variable: "--font-body",
   display: "swap",
 });
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   description: "塔什干中国商品超市，支持微信/Telegram 下单",
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
   const settings = await fetchStoreSettings();
 
   return (

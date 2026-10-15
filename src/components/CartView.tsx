@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   clearCart,
-  getCart,
   getOrCreateOrderToken,
   removeFromCart,
   rotateOrderToken,
   updateQuantity,
+  useCart,
 } from "@/lib/cart";
+import { appPath } from "@/lib/paths";
 import { formatPrice } from "@/lib/products";
 import {
   formatMinOrderHint,
@@ -18,7 +19,6 @@ import {
   getProductSpec,
 } from "@/lib/i18n";
 import { assetPath } from "@/lib/assets";
-import { getBasePath } from "@/lib/paths";
 import { ProductImage } from "@/components/ProductImage";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
@@ -34,21 +34,13 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
   const storeSettings = useStoreSettings();
   const minOrderAmount = minOrderAmountProp ?? storeSettings.minOrderAmount;
   const { getProductById } = useProducts();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const items = useCart();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const refresh = () => setItems(getCart());
-
-  useEffect(() => {
-    refresh();
-    window.addEventListener("cart-updated", refresh);
-    return () => window.removeEventListener("cart-updated", refresh);
-  }, []);
 
   const enriched = items
     .map((item) => {
@@ -66,26 +58,27 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
   const channel = getDefaultChannel(locale);
   const meetsMinimum = minOrderAmount <= 0 || total >= minOrderAmount;
   const remaining = Math.max(0, minOrderAmount - total);
+  const contactReady = Boolean(name.trim() && phone.trim() && address.trim());
 
   const handleSubmit = async () => {
-    if (!enriched.length || !meetsMinimum) return;
+    if (!enriched.length || !meetsMinimum || !contactReady) return;
     setLoading(true);
     setError("");
 
     const orderItems = enriched.map(({ productId, quantity }) => ({ productId, quantity }));
 
     try {
-      const base = getBasePath();
-      const res = await fetch(`${base}/api/orders${base ? "/" : ""}`, {
+      const res = await fetch(appPath("/api/orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: orderItems,
           channel,
-          customerName: name || undefined,
-          customerPhone: phone || undefined,
-          customerAddress: address || undefined,
-          note: note || undefined,
+          locale,
+          customerName: name.trim(),
+          customerPhone: phone.trim(),
+          customerAddress: address.trim(),
+          note: note.trim() || undefined,
           requestToken: getOrCreateOrderToken(),
         }),
       });
@@ -168,7 +161,6 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
                 type="button"
                 onClick={() => {
                   updateQuantity(item.productId, item.quantity - 1);
-                  refresh();
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-surface-2 text-muted hover:bg-surface"
               >
@@ -179,7 +171,6 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
                 type="button"
                 onClick={() => {
                   updateQuantity(item.productId, item.quantity + 1);
-                  refresh();
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-surface-2 text-muted hover:bg-surface"
               >
@@ -189,7 +180,6 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
                 type="button"
                 onClick={() => {
                   removeFromCart(item.productId);
-                  refresh();
                 }}
                 className="ml-2 text-xs text-brand hover:underline"
               >
@@ -204,6 +194,8 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
         <div className="grid gap-3 sm:grid-cols-2">
           <input
             type="text"
+            required
+            maxLength={80}
             placeholder={t("customerName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -211,6 +203,8 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
           />
           <input
             type="tel"
+            required
+            maxLength={32}
             placeholder={t("customerPhone")}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -218,6 +212,9 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
           />
           <input
             type="text"
+            required
+            minLength={4}
+            maxLength={200}
             placeholder={t("customerAddress")}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -225,6 +222,7 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
           />
           <input
             type="text"
+            maxLength={500}
             placeholder={t("note")}
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -249,12 +247,16 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
           </p>
         )}
 
+        {!contactReady && (
+          <p className="mt-3 text-sm text-muted">{t("contactRequired")}</p>
+        )}
+
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         <div className="mt-5 flex flex-wrap gap-3">
           <button
             type="button"
-            disabled={loading || !meetsMinimum}
+            disabled={loading || !meetsMinimum || !contactReady}
             onClick={handleSubmit}
             className="flex-1 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -264,7 +266,6 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
             type="button"
             onClick={() => {
               clearCart();
-              refresh();
             }}
             className="rounded-lg border border-surface-2 px-6 py-3 text-sm font-semibold text-muted transition hover:bg-surface"
           >

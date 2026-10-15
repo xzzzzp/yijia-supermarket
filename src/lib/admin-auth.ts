@@ -1,7 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { getAdminSession } from "@/lib/dev-auth";
+import { getAdminSession, isDevAdminEnabled } from "@/lib/dev-auth";
 import { isMysqlConfigured } from "@/lib/mysql";
 import { resolveStaffAccess } from "@/lib/staff.server";
 import type { AdminSession } from "@/types/staff";
@@ -21,6 +21,6 @@ export async function requireAdmin(): Promise<AdminSession> {
 
 export function getAdminAuthMode(): "mysql" | "dev" | "none" {
   if (isMysqlConfigured()) return "mysql";
-  if (process.env.ADMIN_DEV_EMAIL && process.env.ADMIN_DEV_PASSWORD) return "dev";
+  if (isDevAdminEnabled()) return "dev";
   return "none";
 }
