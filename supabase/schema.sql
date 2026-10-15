@@ -10,7 +10,7 @@ create table if not exists products (
   spec text not null default '',
   spec_ru text not null default '',
   spec_uz text not null default '',
-  image text not null default '/products/placeholder.svg',
+  image text not null default '/products/placeholder.png',
   price integer not null default 0,
   in_stock boolean not null default true,
   is_new boolean not null default false,

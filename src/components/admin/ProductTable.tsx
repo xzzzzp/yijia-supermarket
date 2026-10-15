@@ -1,13 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { Product, ProductCategory } from "@/types/product";
 import { CATEGORIES, getCategoryInfo } from "@/types/product";
 import { formatPrice } from "@/lib/products";
-import { onProductImageError, productImageSrc } from "@/lib/assets";
+import { ProductImage } from "@/components/ProductImage";
 import { deleteProduct } from "@/app/admin/actions";
 
 interface ProductTableProps {
@@ -128,12 +127,11 @@ export function ProductTable({ products }: ProductTableProps) {
                   <tr key={p.id} className="border-b border-slate-50 last:border-b-0">
                     <td className="px-4 py-3">
                       <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-slate-50">
-                        <Image
-                          src={productImageSrc(p.image)}
+                        <ProductImage
+                          image={p.image}
                           alt={p.name}
-                          fill
                           className="object-contain p-1"
-                          onError={onProductImageError}
+                          sizes="48px"
                         />
                       </div>
                     </td>

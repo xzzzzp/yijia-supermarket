@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/products";
-import { onProductImageError, productImageSrc } from "@/lib/assets";
 import { getProductName, getProductSpec } from "@/lib/i18n";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { AddToCartControl } from "@/components/AddToCartControl";
+import { ProductImage } from "@/components/ProductImage";
 
 interface ProductCardProps {
   product: Product;
@@ -19,13 +18,11 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-surface-2 bg-white transition hover:border-brand/40 hover:shadow-lg">
       <div className="relative aspect-square bg-surface">
-        <Image
-          src={productImageSrc(product.image)}
+        <ProductImage
+          image={product.image}
           alt={getProductName(locale, product)}
-          fill
           className="object-contain p-4 transition group-hover:scale-[1.02]"
           sizes="(max-width: 640px) 50vw, 25vw"
-          onError={onProductImageError}
         />
         {product.isNew && (
           <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">

@@ -61,8 +61,7 @@ export async function POST(request: Request) {
       requestToken: body.requestToken,
     });
 
-    const telegram = settings.telegram?.trim() || "yijiasupermarket";
-    const redirectUrl = getRedirectUrl(body.channel, orderText, telegram);
+    const redirectUrl = getRedirectUrl(body.channel, orderText, orderId);
 
     return NextResponse.json({
       ok: true,

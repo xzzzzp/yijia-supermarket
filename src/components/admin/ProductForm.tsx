@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useActionState, useRef, useState } from "react";
 import type { Product } from "@/types/product";
 import { CATEGORIES, type ProductCategory } from "@/types/product";
@@ -9,7 +8,8 @@ import {
   updateProduct,
   uploadProductImageAction,
 } from "@/app/admin/actions";
-import { onProductImageError, PLACEHOLDER_IMAGE, productImageSrc } from "@/lib/assets";
+import { PLACEHOLDER_IMAGE } from "@/lib/assets";
+import { ProductImage } from "@/components/ProductImage";
 
 interface ProductFormProps {
   product?: Product;
@@ -88,12 +88,11 @@ export function ProductForm({ product, mode }: ProductFormProps) {
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">商品图片</p>
           <div className="relative mx-auto aspect-square w-full max-w-[180px] overflow-hidden rounded-xl bg-slate-50">
-            <Image
-              src={productImageSrc(image)}
+            <ProductImage
+              image={image}
               alt="preview"
-              fill
               className="object-contain p-2"
-              onError={onProductImageError}
+              sizes="180px"
             />
           </div>
           <input

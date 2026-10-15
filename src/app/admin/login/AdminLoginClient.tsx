@@ -52,7 +52,7 @@ function SupabaseLoginForm() {
 function DevLoginForm() {
   return (
     <form action={devLogin} className="mt-8 space-y-4">
-      <EmailPasswordFields placeholder="admin@local.dev" />
+      <EmailPasswordFields placeholder="name@example.com" />
       <SubmitButton />
       <p className="text-xs text-slate-500">
         使用服务端表单提交，即使 JS 未加载也可登录。
@@ -129,12 +129,10 @@ function SubmitButton({ loading }: { loading?: boolean }) {
 
 function LoginContent({
   authMode,
-  devEmail,
-  devPassword,
+  showDevHint,
 }: {
   authMode: AuthMode;
-  devEmail?: string;
-  devPassword?: string;
+  showDevHint?: boolean;
 }) {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
@@ -165,9 +163,9 @@ function LoginContent({
         </p>
       )}
 
-      {authMode === "dev" && devEmail && devPassword && (
+      {showDevHint && (
         <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          管理员账号：<strong>{devEmail}</strong> / <strong>{devPassword}</strong>
+          本地开发请使用 .env.local 里的管理员邮箱和密码，此页不会显示密码。
         </p>
       )}
       {authMode === "dev" ? <DevLoginForm /> : <SupabaseLoginForm />}
@@ -177,12 +175,10 @@ function LoginContent({
 
 export function AdminLoginClient({
   authMode,
-  devEmail,
-  devPassword,
+  showDevHint,
 }: {
   authMode: AuthMode;
-  devEmail?: string;
-  devPassword?: string;
+  showDevHint?: boolean;
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5">
@@ -196,11 +192,13 @@ export function AdminLoginClient({
             ? "使用 Supabase 管理员账号登录"
             : authMode === "dev"
               ? "使用管理员账号登录"
-              : "请先配置环境变量"}        </p>
+              : "请先配置环境变量"}
+        </p>
 
         <Suspense fallback={<p className="mt-8 text-sm text-slate-500">加载中…</p>}>
-          <LoginContent authMode={authMode} devEmail={devEmail} devPassword={devPassword} />
-        </Suspense>      </div>
+          <LoginContent authMode={authMode} showDevHint={showDevHint} />
+        </Suspense>
+      </div>
     </main>
   );
 }

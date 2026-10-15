@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/products";
 import { getProductName } from "@/lib/i18n";
-import { onProductImageError, productImageSrc } from "@/lib/assets";
 import { useLanguage } from "@/providers/LanguageProvider";
+import { ProductImage } from "@/components/ProductImage";
 
 interface NewProductsCarouselProps {
   products: Product[];
@@ -41,13 +40,11 @@ export function NewProductsCarousel({ products }: NewProductsCarouselProps) {
               className="group w-36 shrink-0 sm:w-44"
             >
               <div className="relative aspect-square overflow-hidden rounded-2xl bg-surface border border-surface-2">
-                <Image
-                  src={productImageSrc(product.image)}
+                <ProductImage
+                  image={product.image}
                   alt={getProductName(locale, product)}
-                  fill
                   className="object-contain p-3 transition group-hover:scale-105"
                   sizes="180px"
-                  onError={onProductImageError}
                 />
                 {product.isNew && (
                   <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
