@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
   clearCart,
@@ -11,9 +10,16 @@ import {
   updateQuantity,
 } from "@/lib/cart";
 import { formatPrice } from "@/lib/products";
-import { formatMinOrderHint, formatMinOrderNotMet, getDefaultChannel } from "@/lib/i18n";
-import { onProductImageError, productImageSrc } from "@/lib/assets";
-import { getProductName, getProductSpec } from "@/lib/i18n";
+import {
+  formatMinOrderHint,
+  formatMinOrderNotMet,
+  getDefaultChannel,
+  getProductName,
+  getProductSpec,
+} from "@/lib/i18n";
+import { assetPath } from "@/lib/assets";
+import { getBasePath } from "@/lib/paths";
+import { ProductImage } from "@/components/ProductImage";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
 import { useProducts } from "@/providers/ProductCatalogProvider";
@@ -69,7 +75,8 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
     const orderItems = enriched.map(({ productId, quantity }) => ({ productId, quantity }));
 
     try {
-      const res = await fetch("/api/orders", {
+      const base = getBasePath();
+      const res = await fetch(`${base}/api/orders${base ? "/" : ""}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,7 +113,12 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
       }
 
       if (data.redirectUrl) {
-        window.location.href = data.redirectUrl;
+        const target = data.redirectUrl;
+        if (target.startsWith("http://") || target.startsWith("https://")) {
+          window.location.assign(target);
+        } else {
+          window.location.assign(assetPath(target));
+        }
       }
     } catch (err) {
       console.error("Order submit failed:", err);
@@ -133,12 +145,11 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
             className="flex items-center gap-4 border-b border-surface-2 p-4 last:border-b-0"
           >
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-surface">
-              <Image
-                src={productImageSrc(item.product.image)}
+              <ProductImage
+                image={item.product.image}
                 alt={getProductName(locale, item.product)}
-                fill
                 className="object-contain p-1"
-                onError={onProductImageError}
+                sizes="64px"
               />
             </div>
             <div className="min-w-0 flex-1">

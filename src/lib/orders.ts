@@ -61,19 +61,24 @@ export function buildOrderText(
   return lines.join("\n");
 }
 
+/** 下单成功后始终回到站内确认页。Telegram / 微信深链由确认页上的按钮打开。 */
 export function getRedirectUrl(
   channel: CreateOrderRequest["channel"],
   orderText: string,
-  telegramUsername: string,
+  orderId: string,
 ): string {
-  const encoded = encodeURIComponent(orderText);
+  const params = new URLSearchParams({
+    channel,
+    orderId,
+    text: orderText,
+  });
+  return `/order/success?${params.toString()}`;
+}
 
-  if (channel === "wechat") {
-    return `/order/success?channel=wechat&text=${encoded}`;
-  }
-
-  const username = telegramUsername.replace(/^@/, "");
-  return `https://t.me/${username}?text=${encoded}`;
+export function getTelegramShareUrl(username: string, text: string): string {
+  const handle = username.replace(/^@/, "").trim();
+  const params = new URLSearchParams({ text });
+  return `https://t.me/${handle}?${params.toString()}`;
 }
 
 export function validateOrderRequest(body: Partial<CreateOrderRequest>): string | null {

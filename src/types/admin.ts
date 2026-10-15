@@ -26,7 +26,7 @@ export function productToRow(input: ProductInput) {
     spec: input.spec,
     spec_ru: input.specRu,
     spec_uz: input.specUz,
-    image: input.image || "/products/placeholder.svg",
+    image: input.image || "/products/placeholder.png",
     price: input.price,
     in_stock: input.inStock,
     is_new: input.isNew,

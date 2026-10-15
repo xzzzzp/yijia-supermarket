@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <rect width="400" height="400" fill="#f3f4f6"/>
-  <text x="200" y="190" text-anchor="middle" fill="#9ca3af" font-size="48">=�</text>
-  <text x="200" y="240" text-anchor="middle" fill="#9ca3af" font-size="16" font-family="sans-serif">No Image</text>
+  <rect width="400" height="400" fill="#f7f4ef"/>
+  <rect x="90" y="110" width="220" height="180" rx="16" fill="#ffffff" stroke="#2d4a6f" stroke-width="8"/>
+  <circle cx="155" cy="165" r="22" fill="#e07a4f"/>
+  <path d="M120 250 L175 190 L210 225 L245 185 L280 250 Z" fill="#2d4a6f"/>
 </svg>
