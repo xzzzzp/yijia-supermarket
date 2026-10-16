@@ -27,10 +27,12 @@ export interface AdminSession {
   capabilities: StaffCapabilities;
 }
 
-export type StaffStoreSource = "supabase" | "local";
+export type StaffStoreSource = "mysql" | "local";
 
 export interface StaffDirectory {
   source: StaffStoreSource;
   staff: StaffRecord[];
   warning?: string;
+  /** MySQL 已配置但读取失败。此时不能把空列表当成「还没有店主」。 */
+  unavailable?: boolean;
 }

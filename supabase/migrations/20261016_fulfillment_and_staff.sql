@@ -1,3 +1,6 @@
+-- 已停用。订单和店员改由 MySQL 保存，请执行 mysql/schema.sql。
+-- 本文件是原先 Supabase 升级脚本，只作对照。
+
 -- 已有库升级：订单履约状态 + 店员权限
 -- 在 Supabase SQL Editor 执行本文件，或重新执行 supabase/schema.sql 中对应段落。
 -- 旧订单 pending / completed 保持原义，无需改写行数据。

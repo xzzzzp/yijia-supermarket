@@ -24,7 +24,7 @@ export default async function AdminPage() {
     <>
       {authMode === "dev" && (
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          本地开发模式：当前显示示例商品。配置 Supabase 后可持久化增删改数据。
+          本地开发模式：当前显示示例商品。配置 MYSQL_* 后可持久化增删改商品。
         </div>
       )}
 

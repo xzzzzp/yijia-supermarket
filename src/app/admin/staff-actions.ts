@@ -27,7 +27,7 @@ export async function createStaffAction(formData: FormData) {
   const result = await createStaffMember({
     email: String(formData.get("email") ?? ""),
     displayName: String(formData.get("displayName") ?? ""),
-    authUserId: String(formData.get("authUserId") ?? ""),
+    password: String(formData.get("password") ?? ""),
     isOwner: flag(formData, "isOwner"),
     orderNotifications: flag(formData, "orderNotifications"),
     viewStats: flag(formData, "viewStats"),
@@ -48,7 +48,7 @@ export async function updateStaffAction(formData: FormData) {
 
   const result = await updateStaffMember(id, {
     displayName: String(formData.get("displayName") ?? ""),
-    authUserId: String(formData.get("authUserId") ?? ""),
+    password: String(formData.get("password") ?? ""),
     isOwner: flag(formData, "isOwner"),
     orderNotifications: flag(formData, "orderNotifications"),
     viewStats: flag(formData, "viewStats"),

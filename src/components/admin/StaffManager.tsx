@@ -10,7 +10,7 @@ interface StaffManagerProps {
   currentStaffId: string | null;
   source: StaffStoreSource;
   warning?: string;
-  authMode: "supabase" | "dev" | "none";
+  authMode: "mysql" | "dev" | "none";
 }
 
 const CAPABILITIES = [
@@ -97,12 +97,12 @@ export function StaffManager({
           店主拥有全部能力。店员按岗位勾选：接单通知、查看收益/统计、配货、商品上架。店铺设置只对店主开放。
         </p>
         <p className="mt-2">
-          {authMode === "supabase"
-            ? "添加时按邮箱关联已有 Supabase Auth 用户；若不存在则发送邀请邮件。也可以直接填写 User UID。"
-            : "当前未使用 Supabase Auth。店员写入本地 data/staff.json，开发登录账号是店主。其他店员需配置 Supabase 后才能登录。"}
+          {authMode === "mysql"
+            ? "店员用邮箱和密码登录。添加时要设登录密码。店员表为空时，只有 ADMIN_DEV_EMAIL / ADMIN_DEV_PASSWORD 能创建第一名店主。"
+            : "未配置 MySQL。店员写在 data/staff.json，只有开发账号可以登录。"}
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          数据来源：{source === "supabase" ? "Supabase staff 表" : "本地 data/staff.json"}
+          数据来源：{source === "mysql" ? "MySQL staff 表" : "本地 data/staff.json"}
         </p>
       </div>
 
@@ -144,15 +144,20 @@ export function StaffManager({
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
             />
           </label>
-          <label className="block text-sm text-slate-700 md:col-span-2">
-            Auth User UID
-            <input
-              name="authUserId"
-              type="text"
-              placeholder="可选。留空则按邮箱查找或邀请"
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs outline-none focus:border-red-500"
-            />
-          </label>
+          {authMode === "mysql" && (
+            <label className="block text-sm text-slate-700 md:col-span-2">
+              登录密码
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="至少 6 位"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
+              />
+            </label>
+          )}
         </div>
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="hidden" name="isOwner" value="0" />
@@ -171,7 +176,7 @@ export function StaffManager({
 
       {staff.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600 shadow-sm">
-          还没有店员记录。刷新页面后，当前登录账号会写入为店主。
+          还没有店员记录。请退出后用店主邮箱和密码重新登录，写入成功才会成为店主。
         </div>
       ) : (
         <div className="space-y-4">
@@ -216,16 +221,18 @@ export function StaffManager({
                       className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
                     />
                   </label>
-                  <label className="block text-sm text-slate-700">
-                    Auth User UID
-                    <input
-                      name="authUserId"
-                      type="text"
-                      defaultValue={member.authUserId ?? ""}
-                      placeholder="留空表示尚未绑定"
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs outline-none focus:border-red-500"
-                    />
-                  </label>
+                  {authMode === "mysql" && (
+                    <label className="block text-sm text-slate-700">
+                      新密码
+                      <input
+                        name="password"
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="留空则不修改"
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
+                      />
+                    </label>
+                  )}
                 </div>
 
                 {lockedOwner ? (

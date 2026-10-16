@@ -1,8 +1,9 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
-import { createAdminClient, hasSupabaseAdmin } from "@/lib/supabase/admin";
+import type { RowDataPacket } from "mysql2";
 import { appendLocalOrder, readLocalOrders, updateLocalOrderStatus } from "@/lib/local-data";
+import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
 import { dispatchNewOrderNotification } from "@/lib/order-notifications";
 import { isAdjacentOrderStatus, isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { normalizeOrderRecord } from "@/lib/order-stats";
@@ -20,66 +21,78 @@ interface SaveOrderInput {
   requestToken: string;
 }
 
-function rowToOrderRecord(row: {
+interface OrderRow extends RowDataPacket {
   id: string;
   channel: OrderChannel;
-  status?: OrderStatus | null;
-  items: OrderItem[];
+  status: OrderStatus | null;
+  items: OrderItem[] | string;
   total: number;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_address?: string | null;
-  note?: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  note: string | null;
   order_text: string;
-  created_at: string;
-  completed_at?: string | null;
-}): OrderRecord {
+  created_at: Date | string;
+  completed_at: Date | string | null;
+}
+
+function toIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+}
+
+function parseItems(value: OrderItem[] | string): OrderItem[] {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value) as OrderItem[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function rowToOrderRecord(row: OrderRow): OrderRecord {
   return normalizeOrderRecord({
     id: row.id,
     channel: row.channel,
     status: row.status ?? "pending",
-    items: row.items,
-    total: row.total,
+    items: parseItems(row.items),
+    total: Number(row.total),
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
     customerAddress: row.customer_address,
     note: row.note,
     orderText: row.order_text,
-    createdAt: row.created_at,
-    completedAt: row.completed_at,
+    createdAt: toIso(row.created_at) ?? new Date().toISOString(),
+    completedAt: toIso(row.completed_at),
   });
 }
 
 export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
-  if (hasSupabaseAdmin()) {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from("orders")
-        .insert({
-          channel: input.channel,
-          status: "pending",
-          items: input.items,
-          total: input.total,
-          customer_name: input.customerName,
-          customer_phone: input.customerPhone,
-          customer_address: input.customerAddress,
-          note: input.note,
-          order_text: input.orderText,
-          request_token: input.requestToken,
-        })
-        .select("id")
-        .single();
-
-      if (!error && data?.id) {
-        await dispatchNewOrderNotification(data.id);
-        return data.id;
-      }
-
-      console.warn("Failed to save order to Supabase:", error?.message);
-    } catch (err) {
-      console.warn("Failed to save order to Supabase:", err);
-    }
+  if (isMysqlConfigured()) {
+    const id = randomUUID();
+    await mysqlExecute(
+      `INSERT INTO orders (
+         id, channel, status, items, total, customer_name, customer_phone,
+         customer_address, note, order_text, request_token
+       ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.channel,
+        JSON.stringify(input.items),
+        input.total,
+        input.customerName ?? null,
+        input.customerPhone ?? null,
+        input.customerAddress ?? null,
+        input.note ?? null,
+        input.orderText,
+        input.requestToken,
+      ],
+    );
+    await dispatchNewOrderNotification(id);
+    return id;
   }
 
   try {
@@ -102,35 +115,11 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
 }
 
 export async function fetchOrderRecords(): Promise<OrderRecord[]> {
-  if (hasSupabaseAdmin()) {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        return data.map((row) =>
-          rowToOrderRecord({
-            id: row.id,
-            channel: row.channel as OrderChannel,
-            status: row.status as OrderStatus | null,
-            items: row.items as OrderItem[],
-            total: row.total,
-            customer_name: row.customer_name,
-            customer_phone: row.customer_phone,
-            customer_address: row.customer_address,
-            note: row.note,
-            order_text: row.order_text,
-            created_at: row.created_at,
-            completed_at: row.completed_at,
-          }),
-        );
-      }
-    } catch (err) {
-      console.warn("Failed to fetch orders from Supabase:", err);
-    }
+  if (isMysqlConfigured()) {
+    const rows = await mysqlQuery<OrderRow[]>(
+      "SELECT * FROM orders ORDER BY created_at DESC",
+    );
+    return rows.map(rowToOrderRecord);
   }
 
   return readLocalOrders();
@@ -167,33 +156,23 @@ export async function updateOrderStatus(
 ): Promise<{ ok: boolean; message: string }> {
   const completedAt = status === "completed" ? new Date().toISOString() : null;
 
-  if (hasSupabaseAdmin()) {
+  if (isMysqlConfigured()) {
     try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from("orders")
-        .update({
-          status,
-          completed_at: completedAt,
-        })
-        .eq("id", orderId)
-        .select("id");
-
-      if (!error && data && data.length > 0) {
+      const result = await mysqlExecute(
+        "UPDATE orders SET status = ?, completed_at = ? WHERE id = ?",
+        [status, completedAt ? new Date(completedAt) : null, orderId],
+      );
+      if (result.affectedRows > 0) {
         return { ok: true, message: statusUpdateMessage(status) };
       }
-
-      if (error) {
-        console.warn("Failed to update order in Supabase:", error.message);
-        if (error.message.includes("orders_status_check") || error.message.includes("check constraint")) {
-          return {
-            ok: false,
-            message: "订单状态约束未升级。请在 Supabase 执行 schema.sql 中的履约状态升级语句。",
-          };
-        }
-      }
+      return { ok: false, message: "未找到该订单" };
     } catch (err) {
-      console.warn("Failed to update order in Supabase:", err);
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("orders_status_chk") || message.includes("Check constraint")) {
+        return { ok: false, message: "订单状态约束未建立。请先执行 mysql/schema.sql。" };
+      }
+      console.error("Failed to update order in MySQL:", err);
+      return { ok: false, message: "订单状态没有写入 MySQL" };
     }
   }
 

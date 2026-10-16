@@ -4,25 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hasCapability } from "@/lib/staff-access";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import {
-  clearDevAdminSession,
-  setDevAdminSession,
-  verifyDevCredentials,
-} from "@/lib/dev-auth";
+import { clearAdminSession, setAdminSession } from "@/lib/dev-auth";
+import { isMysqlConfigured } from "@/lib/mysql";
 import { matchProductByFilename, uploadProductImage } from "@/lib/storage";
-import { fetchAllProducts } from "@/lib/products.server";
+import {
+  deleteProductRecord,
+  fetchAllProducts,
+  insertProduct,
+  updateProductImage,
+  updateProductRecord,
+} from "@/lib/products.server";
+import { loginStaff } from "@/lib/staff.server";
 import { saveStoreSettings } from "@/lib/settings.server";
 import { transitionOrderStatus } from "@/lib/orders.server";
 import { isOrderStatus } from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
-import {
-  parseProductForm,
-  productToRow,
-  validateProductInput,
-} from "@/types/admin";
+import { parseProductForm, validateProductInput } from "@/types/admin";
 import type { BatchImportResult } from "@/types/admin";
 
 async function ensureProductWriter(): Promise<{ ok: false; message: string } | null> {
@@ -30,34 +28,35 @@ async function ensureProductWriter(): Promise<{ ok: false; message: string } | n
   if (!hasCapability(user, "manageProducts")) {
     return { ok: false as const, message: "没有商品上架权限" };
   }
-  if (!isSupabaseConfigured()) {
+  if (!isMysqlConfigured()) {
     return {
       ok: false as const,
-      message: "当前为本地开发模式，商品数据为示例数据。配置 Supabase 后才能增删改商品。",
+      message: "当前为本地开发模式，商品数据为示例数据。配置 MYSQL_* 后才能增删改商品。",
     };
   }
   return null;
 }
 
-export async function devLogin(formData: FormData) {
+export async function adminLogin(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const result = await loginStaff(email, password);
 
-  if (!verifyDevCredentials(email, password)) {
-    redirect("/admin/login?error=invalid");
+  if (!result.ok) {
+    redirect(`/admin/login?error=${result.error}`);
   }
 
-  await setDevAdminSession();
+  try {
+    await setAdminSession({ staffId: result.staffId, email: result.email });
+  } catch (err) {
+    console.error("Failed to set admin session:", err);
+    redirect("/admin/login?error=session");
+  }
   redirect("/admin");
 }
 
 export async function adminLogout() {
-  if (isSupabaseConfigured()) {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-  }
-  await clearDevAdminSession();
+  await clearAdminSession();
   redirect("/admin/login");
 }
 
@@ -68,20 +67,20 @@ export async function createProduct(formData: FormData) {
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
 
-  const admin = createAdminClient();
-  const { data, error: dbError } = await admin
-    .from("products")
-    .insert(productToRow(input))
-    .select("id")
-    .single();
-
-  if (dbError) {
-    return { ok: false as const, message: dbError.message };
+  let id: string;
+  try {
+    id = await insertProduct(input);
+  } catch (err) {
+    const code = typeof err === "object" && err && "code" in err ? String((err as { code?: string }).code) : "";
+    return {
+      ok: false as const,
+      message: code === "ER_DUP_ENTRY" ? "source_key 已存在" : err instanceof Error ? err.message : "创建失败",
+    };
   }
 
   revalidatePath("/");
   revalidatePath("/admin");
-  redirect(`/admin/products/${data.id}/edit?saved=1`);
+  redirect(`/admin/products/${id}/edit?saved=1`);
 }
 
 export async function createProductAction(
@@ -98,14 +97,14 @@ export async function updateProduct(id: string, formData: FormData) {
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
 
-  const admin = createAdminClient();
-  const { error: dbError } = await admin
-    .from("products")
-    .update(productToRow(input))
-    .eq("id", id);
-
-  if (dbError) {
-    return { ok: false as const, message: dbError.message };
+  try {
+    await updateProductRecord(id, input);
+  } catch (err) {
+    const code = typeof err === "object" && err && "code" in err ? String((err as { code?: string }).code) : "";
+    return {
+      ok: false as const,
+      message: code === "ER_DUP_ENTRY" ? "source_key 已存在" : err instanceof Error ? err.message : "保存失败",
+    };
   }
 
   revalidatePath("/");
@@ -118,11 +117,10 @@ export async function deleteProduct(id: string) {
   const denied = await ensureProductWriter();
   if (denied) return denied;
 
-  const admin = createAdminClient();
-  const { error } = await admin.from("products").delete().eq("id", id);
-
-  if (error) {
-    return { ok: false as const, message: error.message };
+  try {
+    await deleteProductRecord(id);
+  } catch (err) {
+    return { ok: false as const, message: err instanceof Error ? err.message : "删除失败" };
   }
 
   revalidatePath("/");
@@ -165,7 +163,6 @@ export async function batchImportImages(formData: FormData) {
   }
 
   const products = await fetchAllProducts();
-  const admin = createAdminClient();
   const results: BatchImportResult[] = [];
 
   for (const file of files) {
@@ -179,12 +176,7 @@ export async function batchImportImages(formData: FormData) {
       if (autoMatch) {
         const matched = matchProductByFilename(file.name, products);
         if (matched) {
-          const { error } = await admin
-            .from("products")
-            .update({ image: imageUrl })
-            .eq("id", matched.id);
-
-          if (error) throw new Error(error.message);
+          await updateProductImage(matched.id, imageUrl);
 
           results.push({
             filename: file.name,

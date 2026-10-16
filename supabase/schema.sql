@@ -1,3 +1,7 @@
+-- 已停用。运行时不再连接 Supabase。
+-- 请改在 MySQL 中执行 mysql/schema.sql。
+-- 下面的语句只保留作旧结构对照，不要在新环境执行。
+
 -- Supabase schema for yijia-supermarket
 -- Run in Supabase SQL Editor
 

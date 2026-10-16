@@ -8,8 +8,8 @@
 |------|------|
 | 框架 | Next.js 16 (App Router + RSC) |
 | 样式 | Tailwind CSS 4 |
-| 数据库 | Supabase (PostgreSQL) |
-| 认证 | Supabase Auth |
+| 数据库 | MySQL（未配置时订单/店员回退本地 JSON，商品用内置示例） |
+| 认证 | 店员邮箱密码（MySQL）或 `ADMIN_DEV` 开发账号；会话为签名 Cookie |
 | 部署 | Vercel |
 | 购物车 | localStorage |
 | 下单 | 华人 → WeChat / 本地人 → Telegram |
@@ -43,7 +43,7 @@ src/
 ├── components/             # UI 组件
 ├── providers/              # ProductCatalog + Language Context
 ├── lib/                    # 工具函数
-│   ├── supabase/           # Supabase 客户端
+│   ├── mysql.ts            # MySQL 连接
 │   ├── products.ts         # 商品数据
 │   ├── cart.ts             # 购物车 (localStorage)
 │   ├── orders.ts           # 订单生成
@@ -51,12 +51,17 @@ src/
 └── types/                  # TypeScript 类型
 ```
 
-## Supabase 配置
+## MySQL
 
-1. 在 [supabase.com](https://supabase.com) 创建项目
-2. 在 SQL Editor 中执行 `supabase/schema.sql`
-3. 在 Authentication 中创建管理员账号
-4. 将 URL 和 Key 填入 `.env.local`
+订单、店员、商品和店铺设置在配置了 `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`（以及 `MYSQL_PASSWORD` / `MYSQL_PORT`，或单一 `MYSQL_URL`）后写入 MySQL。未配置这些变量时，订单和店员回退到 `data/*.json`，商品使用内置示例，后台用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。
+
+1. 在 MySQL 8.0.16+ 里执行 `mysql/schema.sql`（需要 JSON 类型和 CHECK 约束）
+2. 复制 `.env.example` 为 `.env.local`，填入连接信息。不要把真实密码提交到仓库
+3. 启动 `npm run dev`，打开 `/admin/login`
+4. `staff` 表为空时，用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。只有店主行写入成功才会进入后台
+5. 之后在 `/admin/staff` 为店员设置邮箱、密码和能力。店员用这套邮箱密码登录
+
+本地确认写入：配置好连接后提交一笔订单，再在 MySQL 里 `SELECT id, status FROM orders ORDER BY created_at DESC LIMIT 5;`。把订单推进到已完成，`completed_at` 应有值，营收只计这一状态。
 
 ## 下单流程
 
@@ -93,7 +98,7 @@ vercel
 
 `pending` 待电话确认 → `confirmed` 已确认待配送 → `delivering` 配送中 → `awaiting_remittance` 已收款待回款 → `completed` 已完成（已回款）。
 
-后台订单页可以按这个顺序前进一步或退回一步。只有 `completed` 会写入 `completed_at`，也只有 `completed` 计入营收和热销。旧数据里的 `pending`、`completed` 含义不变。本地未配置 Supabase 时，订单写在 `data/orders.json`。
+后台订单页可以按这个顺序前进一步或退回一步。只有 `completed` 会写入 `completed_at`，也只有 `completed` 计入营收和热销。旧数据里的 `pending`、`completed` 含义不变。未配置 MySQL 时，订单写在 `data/orders.json`。
 
 ### 店员权限
 
@@ -108,18 +113,16 @@ vercel
 
 店主拥有全部能力。店铺设置不在上述开关里，只有店主能改。
 
-第一个登录后台的账号，在 `staff` 表为空时会自动写成店主。之后用邮箱添加店员：已配置 Supabase 时会关联现有 Auth 用户，没有则发送邀请邮件；也可以直接填写 Auth User UID。未配置 Supabase 时，开发账号 `ADMIN_DEV_EMAIL` 就是店主，店员写在 `data/staff.json`，其他店员还不能登录。
+MySQL 已配置时，读库失败不会把当前登录者升成店主；第一名店主只有在 `staff` 为空、并且用 `ADMIN_DEV_*` 登录且插入成功之后才存在。未配置 MySQL 时，开发账号写入 `data/staff.json` 成功后才是店主，其他店员不能登录。
 
 ### 应用数据库变更
 
-新项目：在 Supabase SQL Editor 执行整个 `supabase/schema.sql`。
-
-已有项目：执行 `supabase/migrations/20261016_fulfillment_and_staff.sql`（或 schema.sql 里「已有库升级」那一段）。执行后重新登录后台，空的 `staff` 表会把当前账号建成店主，再到 `/admin/staff` 添加店员。
+在 MySQL 客户端执行 `mysql/schema.sql`。`supabase/` 下的 SQL 已停用。
 
 ### 商品 CRUD
 
 - 支持中/俄/乌三语名称与规格
-- 单张图片上传（Supabase Storage 或本地 `public/products/`）
+- 单张图片上传到 `public/products/`
 - 上架 / 下架、新品、库存、排序
 
 ### 批量导入图片
@@ -134,7 +137,5 @@ vercel
 - 图片 `kangshifu-braised-cup.png`
 - 匹配 `source_key` 含 `kangshifu-braised-cup` 的商品
 
-### Supabase Storage
-
-在 SQL Editor 执行 `supabase/schema.sql` 后会创建 `products` 存储桶。生产环境图片走 Supabase CDN；本地开发可写入 `public/products/`。
+商品图片保存在服务器的 `public/products/`。
 

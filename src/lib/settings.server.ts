@@ -1,61 +1,64 @@
 import "server-only";
 
-import { createAdminClient, hasSupabaseAdmin } from "@/lib/supabase/admin";
+import type { RowDataPacket } from "mysql2";
 import { readLocalSettings, writeLocalSettings } from "@/lib/local-data";
+import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
 import {
   DEFAULT_STORE_SETTINGS,
   mergeStoreSettings,
 } from "@/lib/store-settings-defaults";
 import type { StoreSettings } from "@/types/settings";
 
-export async function fetchStoreSettings(): Promise<StoreSettings> {
-  if (hasSupabaseAdmin()) {
-    try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from("store_settings")
-        .select("min_order_amount, payload")
-        .eq("id", "default")
-        .maybeSingle();
+interface SettingsRow extends RowDataPacket {
+  min_order_amount: number;
+  payload: Partial<StoreSettings> | string | null;
+}
 
-      if (!error && data) {
-        const payload = (data.payload ?? {}) as Partial<StoreSettings>;
-        return mergeStoreSettings({
-          ...payload,
-          minOrderAmount: data.min_order_amount ?? payload.minOrderAmount,
-        });
-      }
-    } catch (err) {
-      console.warn("Failed to fetch store settings from Supabase:", err);
+function parsePayload(value: SettingsRow["payload"]): Partial<StoreSettings> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as Partial<StoreSettings>;
+    } catch {
+      return {};
     }
   }
+  return value;
+}
 
-  return readLocalSettings();
+export async function fetchStoreSettings(): Promise<StoreSettings> {
+  if (!isMysqlConfigured()) return readLocalSettings();
+
+  const rows = await mysqlQuery<SettingsRow[]>(
+    "SELECT min_order_amount, payload FROM store_settings WHERE id = 'default' LIMIT 1",
+  );
+  const row = rows[0];
+  if (!row) return mergeStoreSettings(null);
+
+  const payload = parsePayload(row.payload);
+  return mergeStoreSettings({
+    ...payload,
+    minOrderAmount: row.min_order_amount ?? payload.minOrderAmount,
+  });
 }
 
 export async function saveStoreSettings(settings: StoreSettings): Promise<void> {
   const normalized = mergeStoreSettings(settings);
-  const { minOrderAmount, ...payload } = normalized;
-
-  await writeLocalSettings(normalized);
-
-  if (hasSupabaseAdmin()) {
-    try {
-      const admin = createAdminClient();
-      const { error } = await admin.from("store_settings").upsert({
-        id: "default",
-        min_order_amount: minOrderAmount,
-        payload,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) {
-        console.warn("Failed to save store settings to Supabase:", error.message);
-      }
-    } catch (err) {
-      console.warn("Failed to save store settings to Supabase:", err);
-    }
+  if (!isMysqlConfigured()) {
+    await writeLocalSettings(normalized);
+    return;
   }
+
+  const { minOrderAmount, ...payload } = normalized;
+  await mysqlExecute(
+    `INSERT INTO store_settings (id, min_order_amount, payload, updated_at)
+     VALUES ('default', ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       min_order_amount = VALUES(min_order_amount),
+       payload = VALUES(payload),
+       updated_at = VALUES(updated_at)`,
+    [minOrderAmount, JSON.stringify(payload), new Date()],
+  );
 }
 
 export { DEFAULT_STORE_SETTINGS };
