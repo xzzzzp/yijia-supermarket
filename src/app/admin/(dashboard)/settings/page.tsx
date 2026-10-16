@@ -1,7 +1,14 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { fetchStoreSettings } from "@/lib/settings.server";
+import { AccessDenied } from "@/components/admin/AccessDenied";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 
 export default async function AdminSettingsPage() {
+  const user = await requireAdmin();
+  if (!user.isOwner) {
+    return <AccessDenied message="仅店主可以维护店铺设置。" />;
+  }
+
   const settings = await fetchStoreSettings();
 
   return (

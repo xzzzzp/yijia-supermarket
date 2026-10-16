@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
+import { hasCapability } from "@/lib/staff-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -13,7 +14,9 @@ import {
 import { matchProductByFilename, uploadProductImage } from "@/lib/storage";
 import { fetchAllProducts } from "@/lib/products.server";
 import { saveStoreSettings } from "@/lib/settings.server";
-import { updateOrderStatus } from "@/lib/orders.server";
+import { transitionOrderStatus } from "@/lib/orders.server";
+import { isOrderStatus } from "@/lib/order-status";
+import type { OrderStatus } from "@/types/order";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
 import {
   parseProductForm,
@@ -22,13 +25,18 @@ import {
 } from "@/types/admin";
 import type { BatchImportResult } from "@/types/admin";
 
-async function ensureWritable() {
-  await requireAdmin();
-  if (!isSupabaseConfigured()) {
-    throw new Error(
-      "当前为本地开发模式，商品数据为示例数据。配置 Supabase 后才能增删改商品。",
-    );
+async function ensureProductWriter(): Promise<{ ok: false; message: string } | null> {
+  const user = await requireAdmin();
+  if (!hasCapability(user, "manageProducts")) {
+    return { ok: false as const, message: "没有商品上架权限" };
   }
+  if (!isSupabaseConfigured()) {
+    return {
+      ok: false as const,
+      message: "当前为本地开发模式，商品数据为示例数据。配置 Supabase 后才能增删改商品。",
+    };
+  }
+  return null;
 }
 
 export async function devLogin(formData: FormData) {
@@ -54,7 +62,8 @@ export async function adminLogout() {
 }
 
 export async function createProduct(formData: FormData) {
-  await ensureWritable();
+  const denied = await ensureProductWriter();
+  if (denied) return denied;
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
@@ -83,7 +92,8 @@ export async function createProductAction(
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-  await ensureWritable();
+  const denied = await ensureProductWriter();
+  if (denied) return denied;
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
@@ -105,7 +115,8 @@ export async function updateProduct(id: string, formData: FormData) {
 }
 
 export async function deleteProduct(id: string) {
-  await ensureWritable();
+  const denied = await ensureProductWriter();
+  if (denied) return denied;
 
   const admin = createAdminClient();
   const { error } = await admin.from("products").delete().eq("id", id);
@@ -120,7 +131,8 @@ export async function deleteProduct(id: string) {
 }
 
 export async function uploadProductImageAction(formData: FormData) {
-  await ensureWritable();
+  const denied = await ensureProductWriter();
+  if (denied) return denied;
 
   const file = formData.get("file") as File | null;
   const category = String(formData.get("category") ?? "misc");
@@ -141,7 +153,8 @@ export async function uploadProductImageAction(formData: FormData) {
 }
 
 export async function batchImportImages(formData: FormData) {
-  await ensureWritable();
+  const denied = await ensureProductWriter();
+  if (denied) return { ...denied, results: [] };
 
   const category = String(formData.get("category") ?? "");
   const autoMatch = formData.get("autoMatch") === "on";
@@ -218,7 +231,10 @@ export async function updateStoreSettings(
   _prev: { ok: boolean; message: string } | null,
   formData: FormData,
 ) {
-  await requireAdmin();
+  const user = await requireAdmin();
+  if (!user.isOwner) {
+    return { ok: false as const, message: "仅店主可以修改店铺设置" };
+  }
 
   try {
     await saveStoreSettings(parseStoreSettingsForm(formData));
@@ -234,16 +250,16 @@ export async function updateStoreSettings(
   return { ok: true as const, message: "保存成功" };
 }
 
-export async function markOrderCompleted(orderId: string) {
-  await requireAdmin();
-  const result = await updateOrderStatus(orderId, "completed");
-  revalidatePath("/admin/orders");
-  return result;
-}
+export async function transitionOrderStatusAction(orderId: string, status: OrderStatus) {
+  const user = await requireAdmin();
+  if (!hasCapability(user, "fulfillment")) {
+    return { ok: false, message: "没有配货权限，不能修改订单状态" };
+  }
+  if (!isOrderStatus(status)) {
+    return { ok: false, message: "无效的订单状态" };
+  }
 
-export async function markOrderPending(orderId: string) {
-  await requireAdmin();
-  const result = await updateOrderStatus(orderId, "pending");
+  const result = await transitionOrderStatus(orderId, status);
   revalidatePath("/admin/orders");
   return result;
 }

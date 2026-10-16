@@ -1,5 +1,17 @@
 export type OrderChannel = "wechat" | "telegram";
-export type OrderStatus = "pending" | "completed";
+
+/**
+ * 履约状态：
+ * pending 待电话确认 → confirmed 已确认待配送 → delivering 配送中
+ * → awaiting_remittance 已收款待回款 → completed 已回店回款。
+ * 旧数据只有 pending | completed，含义保持不变。
+ */
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "delivering"
+  | "awaiting_remittance"
+  | "completed";
 
 export interface CartItem {
   productId: string;
@@ -57,7 +69,9 @@ export interface SoldProductStat {
 
 export interface OrderStatsSummary {
   completedCount: number;
+  /** 仅 `pending`（待电话确认），不含配送中等中间态。 */
   pendingCount: number;
+  statusCounts: Record<OrderStatus, number>;
   totalRevenue: number;
   soldProducts: SoldProductStat[];
 }

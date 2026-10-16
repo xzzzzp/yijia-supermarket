@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { getDevAdminSession, type AdminUser } from "@/lib/dev-auth";
+import { resolveStaffAccess } from "@/lib/staff.server";
+import type { AdminSession } from "@/types/staff";
 
-export async function requireAdmin(): Promise<AdminUser> {
+async function requireIdentity(): Promise<AdminUser> {
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     const {
@@ -27,12 +29,14 @@ export async function requireAdmin(): Promise<AdminUser> {
   redirect("/admin/login?error=auth");
 }
 
+export async function requireAdmin(): Promise<AdminSession> {
+  const identity = await requireIdentity();
+  return resolveStaffAccess(identity.id, identity.email);
+}
+
 export function getAdminAuthMode(): "supabase" | "dev" | "none" {
   if (isSupabaseConfigured()) return "supabase";
-  if (
-    process.env.ADMIN_DEV_EMAIL &&
-    process.env.ADMIN_DEV_PASSWORD
-  ) {
+  if (process.env.ADMIN_DEV_EMAIL && process.env.ADMIN_DEV_PASSWORD) {
     return "dev";
   }
   return "none";

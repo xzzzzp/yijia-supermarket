@@ -79,10 +79,42 @@ vercel
 
 | 路径 | 功能 |
 |------|------|
-| `/admin` | 商品列表（编辑 / 删除） |
-| `/admin/products/new` | 新增商品 |
-| `/admin/products/[id]/edit` | 编辑商品 |
-| `/admin/import` | 批量导入图片 |
+| `/admin` | 商品列表（编辑 / 删除），需要「商品上架」 |
+| `/admin/products/new` | 人工新增商品 |
+| `/admin/products/[id]/edit` | 人工编辑商品 |
+| `/admin/import` | 可选辅助：批量导入图片 |
+| `/admin/orders` | 订单履约、交易记录；营收统计需「查看收益/统计」 |
+| `/admin/settings` | 店铺设置（仅店主） |
+| `/admin/staff` | 店员权限（仅店主） |
+
+支付仍是配送当面线下收款，没有在线支付。订单标成「已完成」的时刻是配送员回店并把货款交回店铺之后。
+
+### 订单履约状态
+
+`pending` 待电话确认 → `confirmed` 已确认待配送 → `delivering` 配送中 → `awaiting_remittance` 已收款待回款 → `completed` 已完成（已回款）。
+
+后台订单页可以按这个顺序前进一步或退回一步。只有 `completed` 会写入 `completed_at`，也只有 `completed` 计入营收和热销。旧数据里的 `pending`、`completed` 含义不变。本地未配置 Supabase 时，订单写在 `data/orders.json`。
+
+### 店员权限
+
+店主在 `/admin/staff` 配置店员。能力至少包括：
+
+| 能力 | 作用 |
+|------|------|
+| 接单通知 `order_notifications` | 保存开关。新订单落库时调用通知钩子，推送和铃声尚未接入 |
+| 查看收益/统计 `view_stats` | 看已完成营收和热销。没有该权限时仍可看订单列表 |
+| 配货 `fulfillment` | 推进或退回订单状态 |
+| 商品上架 `manage_products` | 人工新增、编辑、删除商品，以及可选的批量导图 |
+
+店主拥有全部能力。店铺设置不在上述开关里，只有店主能改。
+
+第一个登录后台的账号，在 `staff` 表为空时会自动写成店主。之后用邮箱添加店员：已配置 Supabase 时会关联现有 Auth 用户，没有则发送邀请邮件；也可以直接填写 Auth User UID。未配置 Supabase 时，开发账号 `ADMIN_DEV_EMAIL` 就是店主，店员写在 `data/staff.json`，其他店员还不能登录。
+
+### 应用数据库变更
+
+新项目：在 Supabase SQL Editor 执行整个 `supabase/schema.sql`。
+
+已有项目：执行 `supabase/migrations/20261016_fulfillment_and_staff.sql`（或 schema.sql 里「已有库升级」那一段）。执行后重新登录后台，空的 `staff` 表会把当前账号建成店主，再到 `/admin/staff` 添加店员。
 
 ### 商品 CRUD
 

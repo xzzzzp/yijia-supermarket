@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import type { OrderRecord, OrderStatus } from "@/types/order";
+import type { StaffRecord } from "@/types/staff";
 import type { StoreSettings } from "@/types/settings";
 import { mergeStoreSettings } from "@/lib/store-settings-defaults";
 import { normalizeOrderRecord } from "@/lib/order-stats";
@@ -11,6 +12,7 @@ import { normalizeOrderRecord } from "@/lib/order-stats";
 const DATA_DIR = path.join(process.cwd(), "data");
 const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
+const STAFF_FILE = path.join(DATA_DIR, "staff.json");
 
 export async function readLocalSettings(): Promise<StoreSettings> {
   try {
@@ -74,6 +76,7 @@ export async function appendLocalOrder(
 export async function updateLocalOrderStatus(
   orderId: string,
   status: OrderStatus,
+  completedAt: string | null = status === "completed" ? new Date().toISOString() : null,
 ): Promise<boolean> {
   const orders = await readLocalOrders();
   const index = orders.findIndex((order) => order.id === orderId);
@@ -82,10 +85,47 @@ export async function updateLocalOrderStatus(
   orders[index] = normalizeOrderRecord({
     ...orders[index],
     status,
-    completedAt: status === "completed" ? new Date().toISOString() : null,
+    completedAt: status === "completed" ? completedAt : null,
   });
 
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(ORDERS_FILE, JSON.stringify(orders, null, 2));
   return true;
+}
+
+function normalizeStaffRecord(row: Partial<StaffRecord>): StaffRecord | null {
+  if (!row.id || !row.email) return null;
+  const now = new Date().toISOString();
+  return {
+    id: row.id,
+    authUserId: row.authUserId ?? null,
+    email: row.email.trim().toLowerCase(),
+    displayName: row.displayName?.trim() || row.email,
+    isOwner: Boolean(row.isOwner),
+    orderNotifications: Boolean(row.orderNotifications),
+    viewStats: Boolean(row.viewStats),
+    fulfillment: Boolean(row.fulfillment),
+    manageProducts: Boolean(row.manageProducts),
+    createdAt: row.createdAt ?? now,
+    updatedAt: row.updatedAt ?? now,
+  };
+}
+
+export async function readLocalStaff(): Promise<StaffRecord[]> {
+  try {
+    const raw = await fs.readFile(STAFF_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<StaffRecord>[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((row) => {
+      const staff = normalizeStaffRecord(row);
+      return staff ? [staff] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function writeLocalStaff(staff: StaffRecord[]): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(STAFF_FILE, JSON.stringify(staff, null, 2));
 }

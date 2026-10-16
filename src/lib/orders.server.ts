@@ -3,6 +3,8 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { createAdminClient, hasSupabaseAdmin } from "@/lib/supabase/admin";
 import { appendLocalOrder, readLocalOrders, updateLocalOrderStatus } from "@/lib/local-data";
+import { dispatchNewOrderNotification } from "@/lib/order-notifications";
+import { isAdjacentOrderStatus, isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { normalizeOrderRecord } from "@/lib/order-stats";
 import type { OrderChannel, OrderItem, OrderRecord, OrderStatus } from "@/types/order";
 
@@ -70,6 +72,7 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
         .single();
 
       if (!error && data?.id) {
+        await dispatchNewOrderNotification(data.id);
         return data.id;
       }
 
@@ -80,7 +83,7 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
   }
 
   try {
-    return await appendLocalOrder({
+    const id = await appendLocalOrder({
       channel: input.channel,
       items: input.items,
       total: input.total,
@@ -90,6 +93,8 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
       note: input.note ?? null,
       orderText: input.orderText,
     });
+    await dispatchNewOrderNotification(id);
+    return id;
   } catch (err) {
     console.warn("Failed to save order locally:", err);
     return randomUUID();
@@ -131,6 +136,31 @@ export async function fetchOrderRecords(): Promise<OrderRecord[]> {
   return readLocalOrders();
 }
 
+function statusUpdateMessage(status: OrderStatus): string {
+  return `订单已更新为「${ORDER_STATUS_LABELS[status]}」`;
+}
+
+export async function transitionOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+): Promise<{ ok: boolean; message: string }> {
+  if (!isOrderStatus(status)) {
+    return { ok: false, message: "无效的订单状态" };
+  }
+
+  const orders = await fetchOrderRecords();
+  const current = orders.find((order) => order.id === orderId);
+  if (!current) {
+    return { ok: false, message: "未找到该订单" };
+  }
+
+  if (!isAdjacentOrderStatus(current.status, status)) {
+    return { ok: false, message: "只能按履约顺序前进或退回一步" };
+  }
+
+  return updateOrderStatus(orderId, status);
+}
+
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
@@ -140,28 +170,37 @@ export async function updateOrderStatus(
   if (hasSupabaseAdmin()) {
     try {
       const admin = createAdminClient();
-      const { error } = await admin
+      const { data, error } = await admin
         .from("orders")
         .update({
           status,
           completed_at: completedAt,
         })
-        .eq("id", orderId);
+        .eq("id", orderId)
+        .select("id");
 
-      if (!error) {
-        return { ok: true, message: status === "completed" ? "已标记为已完成" : "已恢复为待处理" };
+      if (!error && data && data.length > 0) {
+        return { ok: true, message: statusUpdateMessage(status) };
       }
 
-      console.warn("Failed to update order in Supabase:", error.message);
+      if (error) {
+        console.warn("Failed to update order in Supabase:", error.message);
+        if (error.message.includes("orders_status_check") || error.message.includes("check constraint")) {
+          return {
+            ok: false,
+            message: "订单状态约束未升级。请在 Supabase 执行 schema.sql 中的履约状态升级语句。",
+          };
+        }
+      }
     } catch (err) {
       console.warn("Failed to update order in Supabase:", err);
     }
   }
 
-  const updated = await updateLocalOrderStatus(orderId, status);
+  const updated = await updateLocalOrderStatus(orderId, status, completedAt);
   if (!updated) {
     return { ok: false, message: "未找到该订单" };
   }
 
-  return { ok: true, message: status === "completed" ? "已标记为已完成" : "已恢复为待处理" };
+  return { ok: true, message: statusUpdateMessage(status) };
 }
