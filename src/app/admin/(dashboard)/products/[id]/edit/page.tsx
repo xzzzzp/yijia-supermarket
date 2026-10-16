@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
+import { requireAdmin } from "@/lib/admin-auth";
 import { fetchProductById } from "@/lib/products.server";
+import { hasCapability } from "@/lib/staff-access";
+import { AccessDenied } from "@/components/admin/AccessDenied";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export default async function EditProductPage({
@@ -9,6 +12,11 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string }>;
 }) {
+  const user = await requireAdmin();
+  if (!hasCapability(user, "manageProducts")) {
+    return <AccessDenied message="没有商品上架权限，不能编辑商品。" />;
+  }
+
   const { id } = await params;
   const { saved } = await searchParams;
   const product = await fetchProductById(id);

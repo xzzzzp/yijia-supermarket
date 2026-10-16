@@ -77,8 +77,8 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     if (result.ok && result.url) {
       setImage(result.url);
       setUploadMsg("图片上传成功");
-    } else {
-      setUploadMsg(result.message ?? "上传失败");
+    } else if (!result.ok) {
+      setUploadMsg(result.message || "上传失败");
     }
   };
 

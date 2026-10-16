@@ -2,16 +2,34 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { markOrderCompleted, markOrderPending } from "@/app/admin/actions";
+import { transitionOrderStatusAction } from "@/app/admin/actions";
 import { computeOrderStats } from "@/lib/order-stats";
+import {
+  nextOrderStatus,
+  ORDER_STATUSES,
+  ORDER_STATUS_HINTS,
+  ORDER_STATUS_LABELS,
+  previousOrderStatus,
+} from "@/lib/order-status";
 import { formatPrice } from "@/lib/products";
-import type { OrderRecord } from "@/types/order";
+import type { OrderRecord, OrderStatus } from "@/types/order";
 
 interface OrderTableProps {
   orders: OrderRecord[];
+  canFulfill: boolean;
+  showStats: boolean;
+  notificationsEnabled: boolean;
 }
 
-type StatusFilter = "all" | "pending" | "completed";
+type StatusFilter = "all" | OrderStatus;
+
+const STATUS_BADGE: Record<OrderStatus, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  confirmed: "bg-sky-100 text-sky-800",
+  delivering: "bg-indigo-100 text-indigo-800",
+  awaiting_remittance: "bg-orange-100 text-orange-800",
+  completed: "bg-emerald-100 text-emerald-800",
+};
 
 function formatDate(iso: string): string {
   try {
@@ -31,11 +49,7 @@ function channelLabel(channel: OrderRecord["channel"]): string {
   return channel === "wechat" ? "微信" : "Telegram";
 }
 
-function statusLabel(status: OrderRecord["status"]): string {
-  return status === "completed" ? "已完成" : "待处理";
-}
-
-export function OrderTable({ orders }: OrderTableProps) {
+export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled }: OrderTableProps) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -49,9 +63,7 @@ export function OrderTable({ orders }: OrderTableProps) {
     const q = keyword.trim().toLowerCase();
 
     return orders.filter((order) => {
-      if (statusFilter === "pending" && order.status !== "pending") return false;
-      if (statusFilter === "completed" && order.status !== "completed") return false;
-
+      if (statusFilter !== "all" && order.status !== statusFilter) return false;
       if (!q) return true;
 
       const haystack = [
@@ -62,7 +74,7 @@ export function OrderTable({ orders }: OrderTableProps) {
         order.orderText,
         order.channel,
         order.id,
-        statusLabel(order.status),
+        ORDER_STATUS_LABELS[order.status],
       ]
         .filter(Boolean)
         .join(" ")
@@ -72,23 +84,10 @@ export function OrderTable({ orders }: OrderTableProps) {
     });
   }, [orders, keyword, statusFilter]);
 
-  const handleMarkCompleted = (orderId: string) => {
+  const handleTransition = (orderId: string, status: OrderStatus) => {
     setPendingId(orderId);
     startTransition(async () => {
-      const result = await markOrderCompleted(orderId);
-      if (!result.ok) {
-        alert(result.message);
-      } else {
-        router.refresh();
-      }
-      setPendingId(null);
-    });
-  };
-
-  const handleMarkPending = (orderId: string) => {
-    setPendingId(orderId);
-    startTransition(async () => {
-      const result = await markOrderPending(orderId);
+      const result = await transitionOrderStatusAction(orderId, status);
       if (!result.ok) {
         alert(result.message);
       } else {
@@ -100,56 +99,70 @@ export function OrderTable({ orders }: OrderTableProps) {
 
   const tabs: { key: StatusFilter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: orders.length },
-    { key: "pending", label: "待处理", count: stats.pendingCount },
-    { key: "completed", label: "已完成", count: stats.completedCount },
+    ...ORDER_STATUSES.map((status) => ({
+      key: status,
+      label: ORDER_STATUS_LABELS[status],
+      count: stats.statusCounts[status],
+    })),
   ];
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">已完成订单</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{stats.completedCount}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-          <p className="text-sm text-emerald-700">已完成收入</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-800">{formatPrice(stats.totalRevenue)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">待处理订单</p>
-          <p className="mt-2 text-3xl font-bold text-amber-700">{stats.pendingCount}</p>
-        </div>
-      </div>
+      {notificationsEnabled && (
+        <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          已开启接单通知。新订单落库时会通知店主和打开该开关的店员（推送与铃声尚未接入）。
+        </p>
+      )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">销售统计（已完成订单）</h2>
-        {stats.soldProducts.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">暂无已完成订单的销售数据。</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-slate-200 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2 font-semibold">商品</th>
-                  <th className="px-3 py-2 font-semibold">规格</th>
-                  <th className="px-3 py-2 font-semibold">销量</th>
-                  <th className="px-3 py-2 font-semibold">销售额</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.soldProducts.map((item) => (
-                  <tr key={`${item.productId}-${item.name}`} className="border-b border-slate-100 last:border-b-0">
-                    <td className="px-3 py-2 text-slate-900">{item.name}</td>
-                    <td className="px-3 py-2 text-slate-600">{item.spec || "—"}</td>
-                    <td className="px-3 py-2 font-semibold text-slate-900">{item.quantity}</td>
-                    <td className="px-3 py-2 font-bold text-red-600">{formatPrice(item.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {showStats ? (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm text-slate-500">已完成订单</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{stats.completedCount}</p>
+              <p className="mt-1 text-xs text-slate-500">回店回款后才计入</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+              <p className="text-sm text-emerald-700">已完成收入</p>
+              <p className="mt-2 text-3xl font-bold text-emerald-800">{formatPrice(stats.totalRevenue)}</p>
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900">销售统计（已完成订单）</h2>
+            {stats.soldProducts.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">暂无已完成订单的销售数据。</p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="border-b border-slate-200 text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">商品</th>
+                      <th className="px-3 py-2 font-semibold">规格</th>
+                      <th className="px-3 py-2 font-semibold">销量</th>
+                      <th className="px-3 py-2 font-semibold">销售额</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.soldProducts.map((item) => (
+                      <tr key={`${item.productId}-${item.name}`} className="border-b border-slate-100 last:border-b-0">
+                        <td className="px-3 py-2 text-slate-900">{item.name}</td>
+                        <td className="px-3 py-2 text-slate-600">{item.spec || "—"}</td>
+                        <td className="px-3 py-2 font-semibold text-slate-900">{item.quantity}</td>
+                        <td className="px-3 py-2 font-bold text-red-600">{formatPrice(item.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+          当前账号不能查看营收和热销统计。订单列表仍可按履约阶段筛选。
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
@@ -201,6 +214,8 @@ export function OrderTable({ orders }: OrderTableProps) {
                 {filtered.map((order) => {
                   const expanded = expandedId === order.id;
                   const rowPending = isPending && pendingId === order.id;
+                  const next = nextOrderStatus(order.status);
+                  const previous = previousOrderStatus(order.status);
 
                   return (
                     <tr key={order.id} className="border-b border-slate-100 align-top last:border-b-0">
@@ -224,13 +239,10 @@ export function OrderTable({ orders }: OrderTableProps) {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            order.status === "completed"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
+                          title={ORDER_STATUS_HINTS[order.status]}
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[order.status]}`}
                         >
-                          {statusLabel(order.status)}
+                          {ORDER_STATUS_LABELS[order.status]}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">
@@ -238,23 +250,24 @@ export function OrderTable({ orders }: OrderTableProps) {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
-                          {order.status !== "completed" ? (
+                          {canFulfill && next && (
                             <button
                               type="button"
                               disabled={rowPending}
-                              onClick={() => handleMarkCompleted(order.id)}
+                              onClick={() => handleTransition(order.id, next)}
                               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
-                              {rowPending ? "处理中…" : "标记已完成"}
+                              {rowPending ? "处理中…" : `推进至${ORDER_STATUS_LABELS[next]}`}
                             </button>
-                          ) : (
+                          )}
+                          {canFulfill && previous && (
                             <button
                               type="button"
                               disabled={rowPending}
-                              onClick={() => handleMarkPending(order.id)}
+                              onClick={() => handleTransition(order.id, previous)}
                               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             >
-                              {rowPending ? "处理中…" : "恢复待处理"}
+                              {rowPending ? "处理中…" : `退回至${ORDER_STATUS_LABELS[previous]}`}
                             </button>
                           )}
                           <button
@@ -267,9 +280,13 @@ export function OrderTable({ orders }: OrderTableProps) {
                         </div>
                         {expanded && (
                           <div className="mt-3 max-w-md space-y-3 text-slate-700">
+                            <p>
+                              <span className="font-semibold text-slate-900">履约：</span>
+                              {ORDER_STATUS_HINTS[order.status]}
+                            </p>
                             {order.completedAt && (
                               <p>
-                                <span className="font-semibold text-slate-900">完成时间：</span>
+                                <span className="font-semibold text-slate-900">回款时间：</span>
                                 {formatDate(order.completedAt)}
                               </p>
                             )}

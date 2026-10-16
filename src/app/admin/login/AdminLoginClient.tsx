@@ -1,57 +1,14 @@
 "use client";
 
-import { FormEvent, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { devLogin } from "@/app/admin/actions";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { adminLogin } from "@/app/admin/actions";
 
-type AuthMode = "supabase" | "dev" | "none";
+type AuthMode = "mysql" | "dev" | "none";
 
-function SupabaseLoginForm() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-
-      router.push("/admin");
-      router.refresh();
-    } catch {
-      setError("Supabase 连接失败，请检查 .env.local 中的 URL 和 ANON_KEY");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function LoginForm() {
   return (
-    <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-      <EmailPasswordFields email={email} password={password} onEmailChange={setEmail} onPasswordChange={setPassword} placeholder="admin@example.com" />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <SubmitButton loading={loading} />
-    </form>
-  );
-}
-
-function DevLoginForm() {
-  return (
-    <form action={devLogin} className="mt-8 space-y-4">
+    <form action={adminLogin} className="mt-8 space-y-4">
       <EmailPasswordFields placeholder="name@example.com" />
       <SubmitButton />
       <p className="text-xs text-slate-500">
@@ -141,7 +98,11 @@ function LoginContent({
       ? "请先登录后再访问后台。"
       : urlError === "invalid"
         ? "邮箱或密码错误，请重试。"
-        : "";
+        : urlError === "db"
+          ? "店员数据没有读成或没有写成，登录已拒绝。请检查 MySQL 连接，并确认已执行 mysql/schema.sql。"
+          : urlError === "session"
+            ? "无法签发登录会话。请配置 ADMIN_SESSION_SECRET，或在开发环境保留 ADMIN_DEV_PASSWORD。"
+            : "";
 
   if (authMode === "none") {
     return (
@@ -163,12 +124,17 @@ function LoginContent({
         </p>
       )}
 
-      {showDevHint && (
+      {showDevHint && authMode === "dev" && (
         <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          本地开发请使用 .env.local 里的管理员邮箱和密码，此页不会显示密码。
+          未配置 MySQL。请使用 .env.local 里的管理员邮箱和密码，此页不会显示密码。
         </p>
       )}
-      {authMode === "dev" ? <DevLoginForm /> : <SupabaseLoginForm />}
+      {authMode === "mysql" && (
+        <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          使用店员邮箱和密码。店员表为空时，用 ADMIN_DEV_EMAIL / ADMIN_DEV_PASSWORD 登录，写入成功后才会成为店主。
+        </p>
+      )}
+      <LoginForm />
     </>
   );
 }
@@ -184,12 +150,12 @@ export function AdminLoginClient({
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-wide text-red-600">
-          宜家超市后台
+          亿佳超市后台
         </p>
         <h1 className="mt-3 text-3xl font-bold text-slate-950">管理员登录</h1>
         <p className="mt-2 text-sm text-slate-600">
-          {authMode === "supabase"
-            ? "使用 Supabase 管理员账号登录"
+          {authMode === "mysql"
+            ? "使用店员账号登录"
             : authMode === "dev"
               ? "使用管理员账号登录"
               : "请先配置环境变量"}

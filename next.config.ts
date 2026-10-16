@@ -12,15 +12,7 @@ const allowedDevOrigins = (
 const nextConfig: NextConfig = {
   ...(basePath ? { basePath, trailingSlash: true } : {}),
   allowedDevOrigins,
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-    ],
-  },
+  serverExternalPackages: ["mysql2"],
 };
 
 export default nextConfig;

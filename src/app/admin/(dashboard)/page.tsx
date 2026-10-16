@@ -1,9 +1,22 @@
 import Link from "next/link";
-import { getAdminAuthMode } from "@/lib/admin-auth";
+import { redirect } from "next/navigation";
+import { requireAdmin, getAdminAuthMode } from "@/lib/admin-auth";
 import { fetchAllProducts } from "@/lib/products.server";
+import { canViewOrders, hasCapability } from "@/lib/staff-access";
+import { AccessDenied } from "@/components/admin/AccessDenied";
 import { ProductTable } from "@/components/admin/ProductTable";
 
 export default async function AdminPage() {
+  const user = await requireAdmin();
+
+  if (!hasCapability(user, "manageProducts")) {
+    if (canViewOrders(user)) redirect("/admin/orders");
+    if (user.isOwner) redirect("/admin/staff");
+    return (
+      <AccessDenied message="当前账号尚未分配权限，请联系店主在「店员权限」中开通。" />
+    );
+  }
+
   const products = await fetchAllProducts();
   const authMode = getAdminAuthMode();
 
@@ -11,14 +24,14 @@ export default async function AdminPage() {
     <>
       {authMode === "dev" && (
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          本地开发模式：当前显示示例商品。配置 Supabase 后可持久化增删改数据。
+          本地开发模式：当前显示示例商品。配置 MYSQL_* 后可持久化增删改商品。
         </div>
       )}
 
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">商品管理</h1>
-          <p className="mt-1 text-sm text-slate-600">共 {products.length} 个商品</p>
+          <p className="mt-1 text-sm text-slate-600">共 {products.length} 个商品。人工新增和编辑是上架主路径。</p>
         </div>
         <Link
           href="/admin/products/new"

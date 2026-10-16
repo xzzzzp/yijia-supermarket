@@ -3,7 +3,7 @@ import { AdminLoginClient } from "./AdminLoginClient";
 
 export default function AdminLoginPage() {
   const authMode = getAdminAuthMode();
-  const showDevHint = authMode === "dev" && process.env.NODE_ENV === "development";
+  const showDevHint = authMode === "dev";
 
   return <AdminLoginClient authMode={authMode} showDevHint={showDevHint} />;
 }

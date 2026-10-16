@@ -1,10 +1,13 @@
+import { emptyStatusCounts, isOrderStatus } from "@/lib/order-status";
 import type { OrderRecord, OrderStatsSummary, SoldProductStat } from "@/types/order";
 
 export function normalizeOrderRecord(order: Partial<OrderRecord> & Pick<OrderRecord, "id" | "channel" | "items" | "total" | "orderText" | "createdAt">): OrderRecord {
+  const status = isOrderStatus(order.status) ? order.status : "pending";
+
   return {
     id: order.id,
     channel: order.channel,
-    status: order.status === "completed" ? "completed" : "pending",
+    status,
     items: order.items,
     total: order.total,
     customerName: order.customerName ?? null,
@@ -13,18 +16,19 @@ export function normalizeOrderRecord(order: Partial<OrderRecord> & Pick<OrderRec
     note: order.note ?? null,
     orderText: order.orderText,
     createdAt: order.createdAt,
-    completedAt: order.completedAt ?? null,
+    completedAt: status === "completed" ? (order.completedAt ?? null) : null,
   };
 }
 
 export function computeOrderStats(orders: OrderRecord[]): OrderStatsSummary {
-  const completed = orders.filter((order) => order.status === "completed");
-  const pending = orders.filter((order) => order.status !== "completed");
+  const statusCounts = emptyStatusCounts();
   const productMap = new Map<string, SoldProductStat>();
-
   let totalRevenue = 0;
 
-  for (const order of completed) {
+  for (const order of orders) {
+    statusCounts[order.status] += 1;
+    if (order.status !== "completed") continue;
+
     totalRevenue += order.total;
 
     for (const item of order.items) {
@@ -48,8 +52,9 @@ export function computeOrderStats(orders: OrderRecord[]): OrderStatsSummary {
   }
 
   return {
-    completedCount: completed.length,
-    pendingCount: pending.length,
+    completedCount: statusCounts.completed,
+    pendingCount: statusCounts.pending,
+    statusCounts,
     totalRevenue,
     soldProducts: Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue),
   };
