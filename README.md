@@ -9,8 +9,8 @@
 | 框架 | Next.js 16 (App Router + RSC) |
 | 样式 | Tailwind CSS 4 |
 | 数据库 | MySQL（未配置时订单/店员回退本地 JSON，商品用内置示例） |
-| 认证 | 店员邮箱密码（MySQL）或 `ADMIN_DEV` 开发账号；会话为签名 Cookie |
-| 部署 | Vercel |
+| 认证 | 店员邮箱密码（MySQL）或本地 `ADMIN_DEV`；会话为签名 Cookie |
+| 部署 | PM2 + nginx，`basePath=/yijia`（见 `deploy/`） |
 | 购物车 | localStorage |
 | 下单 | 华人 → WeChat / 本地人 → Telegram |
 
@@ -56,12 +56,13 @@ src/
 订单、店员、商品和店铺设置在配置了 `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`（以及 `MYSQL_PASSWORD` / `MYSQL_PORT`，或单一 `MYSQL_URL`）后写入 MySQL。未配置这些变量时，订单和店员回退到 `data/*.json`，商品使用内置示例，后台用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。
 
 1. 在 MySQL 8.0.16+ 里执行 `mysql/schema.sql`（需要 JSON 类型和 CHECK 约束）
-2. 复制 `.env.example` 为 `.env.local`，填入连接信息。不要把真实密码提交到仓库
-3. 启动 `npm run dev`，打开 `/admin/login`
-4. `staff` 表为空时，用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。只有店主行写入成功才会进入后台
-5. 之后在 `/admin/staff` 为店员设置邮箱、密码和能力。店员用这套邮箱密码登录
+2. 已有库若还没有 `orders_request_token_uidx`，再执行 `mysql/migrations/20261016_orders_request_token_uidx.sql`。有重复 `request_token` 时先去重
+3. 复制 `.env.example` 为 `.env.local`，填入连接信息。不要把真实密码提交到仓库
+4. 启动 `npm run dev`，打开 `/admin/login`
+5. `staff` 表为空时，用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。只有店主行写入成功才会进入后台
+6. 之后在 `/admin/staff` 为店员设置邮箱、密码和能力。店员用这套邮箱密码登录
 
-本地确认写入：配置好连接后提交一笔订单，再在 MySQL 里 `SELECT id, status FROM orders ORDER BY created_at DESC LIMIT 5;`。把订单推进到已完成，`completed_at` 应有值，营收只计这一状态。
+本地确认写入：配置好连接后提交一笔订单，再在 MySQL 里 `SELECT id, status FROM orders ORDER BY created_at DESC LIMIT 5;`。把订单推进到已完成，`completed_at` 应有值，营收只计这一状态。相同 `request_token` 不会生成第二张订单。
 
 ## 下单流程
 
@@ -71,14 +72,15 @@ src/
   └── 俄语/乌兹别克语 → 生成订单 → 跳转 Telegram
 ```
 
-## 部署到 Vercel
+## 部署
 
-```bash
-npm i -g vercel
-vercel
-```
+生产环境用 `deploy/deploy.sh`：同步代码、`npm ci && npm run build`、PM2 监听 `127.0.0.1:3001`，并调用 `deploy/patch-nginx.sh` 把 `/yijia/` 反代写入 nginx 后 reload。
 
-在 Vercel 项目设置中添加环境变量（同 `.env.example`）。
+服务器 `.env.local` 以 `deploy/env.production.example` 为准，必须填写 MySQL 连接、`ADMIN_SESSION_SECRET`，以及第一名店主的邮箱和密码。`NEXT_PUBLIC_BASE_PATH` 在构建时打进前端。生产环境签发会话不会回退到 `ADMIN_DEV_PASSWORD`；未配置 MySQL 时开发登录也不会生效。
+
+HTTPS 需在有域名后用 certbot 单独配置，本仓库的脚本不申请证书。
+
+可选：配置 `TELEGRAM_BOT_TOKEN` 和 `TELEGRAM_CHAT_ID` 后，下单成功会给店铺 Telegram 发一条通知。未配置时订单仍会保存。
 
 ## 后台管理
 

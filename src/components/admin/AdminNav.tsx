@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { adminLogout } from "@/app/admin/actions";
 import { canViewOrders, hasCapability } from "@/lib/staff-access";
 import type { AdminSession } from "@/types/staff";
 
@@ -23,7 +24,7 @@ export function AdminNav({ user }: { user: AdminSession }) {
           {link.label}
         </Link>
       ))}
-      <form action="/admin/logout" method="POST" className="ml-auto">
+      <form action={adminLogout} className="ml-auto">
         <button
           type="submit"
           className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { Locale } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
@@ -12,28 +12,44 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const LOCALE_KEY = "yijia-locale";
+const LOCALE_EVENT = "yijia-locale";
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("ru");
-  const [mounted, setMounted] = useState(false);
+function isLocale(value: string | null): value is Locale {
+  return value === "ru" || value === "uz" || value === "zh";
+}
+
+function subscribeLocale(onStoreChange: () => void): () => void {
+  window.addEventListener(LOCALE_EVENT, onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener(LOCALE_EVENT, onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function readLocale(): Locale {
+  try {
+    const saved = localStorage.getItem(LOCALE_KEY);
+    return isLocale(saved) ? saved : "ru";
+  } catch {
+    return "ru";
+  }
+}
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const locale = useSyncExternalStore(subscribeLocale, readLocale, () => "ru" as Locale);
 
   useEffect(() => {
-    const saved = localStorage.getItem(LOCALE_KEY) as Locale | null;
-    if (saved && ["ru", "uz", "zh"].includes(saved)) {
-      setLocaleState(saved);
-    }
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      document.documentElement.lang = locale;
-    }
-  }, [locale, mounted]);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLocale = (next: Locale) => {
-    setLocaleState(next);
-    localStorage.setItem(LOCALE_KEY, next);
+    try {
+      localStorage.setItem(LOCALE_KEY, next);
+    } catch {
+      // 隐私模式无法写入时，本次点击仍通过事件更新当前标签页
+    }
+    window.dispatchEvent(new Event(LOCALE_EVENT));
   };
 
   const value: LanguageContextValue = {

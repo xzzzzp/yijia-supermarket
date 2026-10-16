@@ -9,6 +9,13 @@ import { isAdjacentOrderStatus, isOrderStatus, ORDER_STATUS_LABELS } from "@/lib
 import { normalizeOrderRecord } from "@/lib/order-stats";
 import type { OrderChannel, OrderItem, OrderRecord, OrderStatus } from "@/types/order";
 
+export class OrderPersistError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderPersistError";
+  }
+}
+
 interface SaveOrderInput {
   channel: OrderChannel;
   items: OrderItem[];
@@ -19,6 +26,11 @@ interface SaveOrderInput {
   note?: string;
   orderText: string;
   requestToken: string;
+}
+
+interface SavedOrder {
+  id: string;
+  orderText: string;
 }
 
 interface OrderRow extends RowDataPacket {
@@ -32,8 +44,14 @@ interface OrderRow extends RowDataPacket {
   customer_address: string | null;
   note: string | null;
   order_text: string;
+  request_token: string | null;
   created_at: Date | string;
   completed_at: Date | string | null;
+}
+
+interface TokenRow extends RowDataPacket {
+  id: string;
+  order_text: string;
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -53,6 +71,12 @@ function parseItems(value: OrderItem[] | string): OrderItem[] {
   }
 }
 
+function isDuplicateEntry(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const row = err as { code?: string; errno?: number };
+  return row.code === "ER_DUP_ENTRY" || row.errno === 1062;
+}
+
 function rowToOrderRecord(row: OrderRow): OrderRecord {
   return normalizeOrderRecord({
     id: row.id,
@@ -65,34 +89,64 @@ function rowToOrderRecord(row: OrderRow): OrderRecord {
     customerAddress: row.customer_address,
     note: row.note,
     orderText: row.order_text,
+    requestToken: row.request_token,
     createdAt: toIso(row.created_at) ?? new Date().toISOString(),
     completedAt: toIso(row.completed_at),
   });
 }
 
-export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
+async function findMysqlOrderByToken(requestToken: string): Promise<SavedOrder | null> {
+  const rows = await mysqlQuery<TokenRow[]>(
+    "SELECT id, order_text FROM orders WHERE request_token = ? LIMIT 1",
+    [requestToken],
+  );
+  const row = rows[0];
+  if (!row?.id) return null;
+  return { id: row.id, orderText: row.order_text };
+}
+
+export async function saveOrderRecord(input: SaveOrderInput): Promise<SavedOrder> {
   if (isMysqlConfigured()) {
-    const id = randomUUID();
-    await mysqlExecute(
-      `INSERT INTO orders (
-         id, channel, status, items, total, customer_name, customer_phone,
-         customer_address, note, order_text, request_token
-       ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.channel,
-        JSON.stringify(input.items),
-        input.total,
-        input.customerName ?? null,
-        input.customerPhone ?? null,
-        input.customerAddress ?? null,
-        input.note ?? null,
-        input.orderText,
-        input.requestToken,
-      ],
-    );
-    await dispatchNewOrderNotification(id);
-    return id;
+    try {
+      const existing = await findMysqlOrderByToken(input.requestToken);
+      if (existing) return existing;
+
+      const id = randomUUID();
+      await mysqlExecute(
+        `INSERT INTO orders (
+           id, channel, status, items, total, customer_name, customer_phone,
+           customer_address, note, order_text, request_token
+         ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.channel,
+          JSON.stringify(input.items),
+          input.total,
+          input.customerName ?? null,
+          input.customerPhone ?? null,
+          input.customerAddress ?? null,
+          input.note ?? null,
+          input.orderText,
+          input.requestToken,
+        ],
+      );
+      await dispatchNewOrderNotification(id);
+      return { id, orderText: input.orderText };
+    } catch (err) {
+      if (isDuplicateEntry(err)) {
+        const raced = await findMysqlOrderByToken(input.requestToken);
+        if (raced) return raced;
+      }
+      if (err instanceof OrderPersistError) throw err;
+      const message = err instanceof Error ? err.message : "订单未写入数据库";
+      throw new OrderPersistError(message);
+    }
+  }
+
+  const localOrders = await readLocalOrders();
+  const existingLocal = localOrders.find((order) => order.requestToken === input.requestToken);
+  if (existingLocal) {
+    return { id: existingLocal.id, orderText: existingLocal.orderText };
   }
 
   try {
@@ -105,12 +159,13 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
       customerAddress: input.customerAddress ?? null,
       note: input.note ?? null,
       orderText: input.orderText,
+      requestToken: input.requestToken,
     });
     await dispatchNewOrderNotification(id);
-    return id;
+    return { id, orderText: input.orderText };
   } catch (err) {
-    console.warn("Failed to save order locally:", err);
-    return randomUUID();
+    const message = err instanceof Error ? err.message : "订单未写入本地";
+    throw new OrderPersistError(message);
   }
 }
 

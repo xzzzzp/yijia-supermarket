@@ -19,7 +19,7 @@ body {
 }
 
 .font-display {
-  font-family: var(--font-display), system-ui, sans-serif;
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
 }
 
 /* 横向滚动分类/新品 */

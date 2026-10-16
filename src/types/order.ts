@@ -33,6 +33,7 @@ export interface CreateOrderRequest {
   customerPhone?: string;
   customerAddress?: string;
   note?: string;
+  locale?: "ru" | "uz" | "zh";
   requestToken: string;
 }
 
@@ -42,6 +43,7 @@ export interface CreateOrderResponse {
   orderId?: string;
   redirectUrl?: string;
   orderText?: string;
+  notified?: boolean;
 }
 
 export interface OrderRecord {
@@ -55,6 +57,7 @@ export interface OrderRecord {
   customerAddress?: string | null;
   note?: string | null;
   orderText: string;
+  requestToken?: string | null;
   createdAt: string;
   completedAt?: string | null;
 }

@@ -45,6 +45,7 @@ create index if not exists orders_status_idx on orders(status);
 create index if not exists products_category_idx on products(category);
 create index if not exists products_published_idx on products(is_published);
 create index if not exists orders_created_at_idx on orders(created_at desc);
+create unique index if not exists orders_request_token_uidx on orders(request_token);
 
 create table if not exists store_settings (
   id text primary key default 'default',

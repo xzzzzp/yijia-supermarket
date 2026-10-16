@@ -1,25 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getCartCount } from "@/lib/cart";
+import { useCartCount } from "@/lib/cart";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export function Header() {
   const { t } = useLanguage();
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const update = () => setCount(getCartCount());
-    update();
-    window.addEventListener("cart-updated", update);
-    window.addEventListener("storage", update);
-    return () => {
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener("storage", update);
-    };
-  }, []);
+  const count = useCartCount();
 
   return (
     <header className="sticky top-0 z-50 border-b border-surface-2 bg-surface/90 backdrop-blur-md">

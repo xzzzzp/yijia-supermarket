@@ -21,6 +21,7 @@ interface SessionPayload {
 
 export function isDevAdminEnabled(): boolean {
   return (
+    process.env.NODE_ENV !== "production" &&
     !isMysqlConfigured() &&
     Boolean(process.env.ADMIN_DEV_EMAIL && process.env.ADMIN_DEV_PASSWORD)
   );
@@ -38,8 +39,10 @@ export function verifyDevCredentials(email: string, password: string): boolean {
 }
 
 function sessionSecret(): string | null {
-  const secret = process.env.ADMIN_SESSION_SECRET?.trim() || process.env.ADMIN_DEV_PASSWORD;
-  return secret || null;
+  const dedicated = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (dedicated) return dedicated;
+  if (process.env.NODE_ENV === "production") return null;
+  return process.env.ADMIN_DEV_PASSWORD?.trim() || null;
 }
 
 function sign(payload: string, secret: string): string {
@@ -49,7 +52,11 @@ function sign(payload: string, secret: string): string {
 export async function setAdminSession(user: { staffId: string; email: string }): Promise<void> {
   const secret = sessionSecret();
   if (!secret) {
-    throw new Error("缺少 ADMIN_SESSION_SECRET 或 ADMIN_DEV_PASSWORD，无法签发后台会话");
+    throw new Error(
+      process.env.NODE_ENV === "production"
+        ? "缺少 ADMIN_SESSION_SECRET，无法签发后台会话"
+        : "缺少 ADMIN_SESSION_SECRET 或 ADMIN_DEV_PASSWORD，无法签发后台会话",
+    );
   }
 
   const body: SessionPayload = {

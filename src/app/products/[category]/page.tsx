@@ -5,7 +5,6 @@ import {
   filterNewProducts,
 } from "@/lib/products";
 import type { ProductCategory } from "@/types/product";
-import { getCategoryInfo } from "@/types/product";
 import { ProductCatalogProvider } from "@/providers/ProductCatalogProvider";
 import { LanguageProvider } from "@/providers/LanguageProvider";
 import { Header } from "@/components/Header";
@@ -45,9 +44,6 @@ export default async function CategoryPage({
     category === "new"
       ? filterNewProducts(allProducts)
       : filterByCategory(allProducts, category as ProductCategory);
-
-  const catInfo =
-    category !== "new" ? getCategoryInfo(category as ProductCategory) : null;
 
   return (
     <ProductCatalogProvider products={allProducts}>
