@@ -17,6 +17,7 @@ export function normalizeOrderRecord(order: Partial<OrderRecord> & Pick<OrderRec
     orderText: order.orderText,
     createdAt: order.createdAt,
     completedAt: status === "completed" ? (order.completedAt ?? null) : null,
+    requestToken: order.requestToken?.trim() || null,
   };
 }
 

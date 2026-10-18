@@ -1,18 +1,23 @@
 import "server-only";
 
+import { insertInAppOrderNotifications } from "@/lib/notifications.server";
 import { listNotificationRecipients } from "@/lib/staff.server";
 
 /**
- * 新订单通知钩子。
- * 接单通知目前只是店员能力开关：这里找出店主和开启了该能力的店员。
- * 推送、铃声、红点尚未接入。
+ * 新订单站内通知。
+ * 收件人是全部店主，以及打开了接单通知的店员。只写 channel = in_app。
  */
 export async function dispatchNewOrderNotification(orderId: string): Promise<void> {
   try {
     const recipients = await listNotificationRecipients();
-    console.info("[order-notifications] new order", {
+    const inserted = await insertInAppOrderNotifications(
       orderId,
-      recipients: recipients.map((member) => member.email),
+      recipients.map((member) => member.id),
+    );
+    console.info("[order-notifications] in_app", {
+      orderId,
+      recipients: recipients.length,
+      inserted,
     });
   } catch (err) {
     console.warn("[order-notifications] hook failed:", err);

@@ -14,7 +14,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   confirmed: "已确认待配送",
   delivering: "配送中",
   awaiting_remittance: "已收款待回款",
-  completed: "已完成",
+  completed: "已完成（回店回款）",
 };
 
 export const ORDER_STATUS_HINTS: Record<OrderStatus, string> = {

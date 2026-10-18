@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       note: body.note,
     });
 
-    const orderId = await saveOrderRecord({
+    const saved = await saveOrderRecord({
       channel: body.channel,
       items: orderItems,
       total,
@@ -61,12 +61,12 @@ export async function POST(request: Request) {
       requestToken: body.requestToken,
     });
 
-    const redirectUrl = getRedirectUrl(body.channel, orderText, orderId);
+    const redirectUrl = getRedirectUrl(body.channel, saved.orderText, saved.id);
 
     return NextResponse.json({
       ok: true,
-      orderId,
-      orderText,
+      orderId: saved.id,
+      orderText: saved.orderText,
       redirectUrl,
     });
   } catch (err) {

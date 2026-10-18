@@ -8,7 +8,9 @@
 --   confirmed            已确认待配送
 --   delivering           配送中
 --   awaiting_remittance  已收款待回款（当面已收款，货款尚未交回店铺）
---   completed            已回店回款
+--   completed            已完成（回店回款）
+--
+-- 另有 order_notifications（站内接单通知，仅 in_app）和 audit_logs（后台操作日志）。
 
 CREATE TABLE IF NOT EXISTS products (
   id CHAR(36) NOT NULL PRIMARY KEY,
@@ -48,6 +50,7 @@ CREATE TABLE IF NOT EXISTS orders (
   completed_at DATETIME(3) NULL,
   CONSTRAINT orders_channel_chk CHECK (channel IN ('wechat', 'telegram')),
   CONSTRAINT orders_status_chk CHECK (status IN ('pending', 'confirmed', 'delivering', 'awaiting_remittance', 'completed')),
+  UNIQUE KEY orders_request_token_unique (request_token),
   KEY orders_status_idx (status),
   KEY orders_created_at_idx (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -79,4 +82,33 @@ CREATE TABLE IF NOT EXISTS staff (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY staff_email_unique (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 站内订单通知。P0 只有 in_app，不接 Telegram 或其他外部渠道。
+-- 同一订单、同一收件人、同一渠道只保留一条，重复派发会被忽略。
+CREATE TABLE IF NOT EXISTS order_notifications (
+  notification_id CHAR(36) NOT NULL PRIMARY KEY,
+  order_id CHAR(36) NOT NULL,
+  recipient_staff_id CHAR(36) NOT NULL,
+  channel VARCHAR(16) NOT NULL DEFAULT 'in_app',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  read_at DATETIME(3) NULL,
+  CONSTRAINT order_notifications_channel_chk CHECK (channel = 'in_app'),
+  UNIQUE KEY order_notifications_once (order_id, recipient_staff_id, channel),
+  KEY order_notifications_recipient_idx (recipient_staff_id, read_at),
+  KEY order_notifications_created_idx (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 后台操作日志。列表里的「时间」对应 created_at。ip 可空。
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  actor_email VARCHAR(255) NOT NULL,
+  actor_staff_id CHAR(36) NULL,
+  action VARCHAR(64) NOT NULL,
+  target_type VARCHAR(64) NOT NULL,
+  target_id VARCHAR(255) NULL,
+  summary VARCHAR(512) NOT NULL,
+  ip VARCHAR(64) NULL,
+  KEY audit_logs_created_at_idx (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

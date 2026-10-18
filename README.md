@@ -89,14 +89,16 @@ vercel
 | `/admin/products/[id]/edit` | 人工编辑商品 |
 | `/admin/import` | 可选辅助：批量导入图片 |
 | `/admin/orders` | 订单履约、交易记录；营收统计需「查看收益/统计」 |
+| `/admin/notifications` | 站内接单通知；需要「接单通知」（店主始终有） |
 | `/admin/settings` | 店铺设置（仅店主） |
 | `/admin/staff` | 店员权限（仅店主） |
+| `/admin/audit-logs` | 操作日志（仅店主） |
 
-支付仍是配送当面线下收款，没有在线支付。订单标成「已完成」的时刻是配送员回店并把货款交回店铺之后。
+支付仍是配送当面线下收款，没有在线支付。订单标成「已完成（回店回款）」的时刻是配送员回店并把货款交回店铺之后。
 
 ### 订单履约状态
 
-`pending` 待电话确认 → `confirmed` 已确认待配送 → `delivering` 配送中 → `awaiting_remittance` 已收款待回款 → `completed` 已完成（已回款）。
+`pending` 待电话确认 → `confirmed` 已确认待配送 → `delivering` 配送中 → `awaiting_remittance` 已收款待回款 → `completed` 已完成（回店回款）。
 
 后台订单页可以按这个顺序前进一步或退回一步。只有 `completed` 会写入 `completed_at`，也只有 `completed` 计入营收和热销。旧数据里的 `pending`、`completed` 含义不变。未配置 MySQL 时，订单写在 `data/orders.json`。
 
@@ -106,7 +108,7 @@ vercel
 
 | 能力 | 作用 |
 |------|------|
-| 接单通知 `order_notifications` | 保存开关。新订单落库时调用通知钩子，推送和铃声尚未接入 |
+| 接单通知 `order_notifications` | 新订单给店主和打开该开关的店员写站内通知。右上角铃铛显示未读数 |
 | 查看收益/统计 `view_stats` | 看已完成营收和热销。没有该权限时仍可看订单列表 |
 | 配货 `fulfillment` | 推进或退回订单状态 |
 | 商品上架 `manage_products` | 人工新增、编辑、删除商品，以及可选的批量导图 |
@@ -117,7 +119,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。`supabase/` 下的 SQL 已停用。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_notifications_and_audit.sql` 和 `mysql/migrations/20261018_orders_request_token_unique.sql`（都可重复执行），补上通知、操作日志，以及 `orders.request_token` 唯一索引。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
 
 ### 商品 CRUD
 

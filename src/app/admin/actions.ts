@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAudit } from "@/lib/audit.server";
 import { hasCapability } from "@/lib/staff-access";
 import { clearAdminSession, setAdminSession } from "@/lib/dev-auth";
 import { isMysqlConfigured } from "@/lib/mysql";
@@ -10,6 +11,7 @@ import { matchProductByFilename, uploadProductImage } from "@/lib/storage";
 import {
   deleteProductRecord,
   fetchAllProducts,
+  fetchProductById,
   insertProduct,
   updateProductImage,
   updateProductRecord,
@@ -17,13 +19,17 @@ import {
 import { loginStaff } from "@/lib/staff.server";
 import { saveStoreSettings } from "@/lib/settings.server";
 import { transitionOrderStatus } from "@/lib/orders.server";
-import { isOrderStatus } from "@/lib/order-status";
+import { isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
+import type { AdminSession } from "@/types/staff";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
 import { parseProductForm, validateProductInput } from "@/types/admin";
 import type { BatchImportResult } from "@/types/admin";
+import type { AuditAction } from "@/types/audit";
 
-async function ensureProductWriter(): Promise<{ ok: false; message: string } | null> {
+async function ensureProductWriter(): Promise<
+  { ok: false; message: string } | { ok: true; user: AdminSession }
+> {
   const user = await requireAdmin();
   if (!hasCapability(user, "manageProducts")) {
     return { ok: false as const, message: "没有商品上架权限" };
@@ -34,7 +40,21 @@ async function ensureProductWriter(): Promise<{ ok: false; message: string } | n
       message: "当前为本地开发模式，商品数据为示例数据。配置 MYSQL_* 后才能增删改商品。",
     };
   }
-  return null;
+  return { ok: true, user };
+}
+
+function writeAudit(
+  user: Pick<AdminSession, "email" | "staffId">,
+  input: { action: AuditAction; targetType: string; targetId?: string | null; summary: string },
+) {
+  return recordAudit({
+    actorEmail: user.email,
+    actorStaffId: user.staffId,
+    action: input.action,
+    targetType: input.targetType,
+    targetId: input.targetId,
+    summary: input.summary,
+  });
 }
 
 export async function adminLogin(formData: FormData) {
@@ -43,6 +63,22 @@ export async function adminLogin(formData: FormData) {
   const result = await loginStaff(email, password);
 
   if (!result.ok) {
+    const attempted = email.toLowerCase() || "（未填写）";
+    const reason =
+      result.error === "db"
+        ? "无法读取店员表"
+        : result.error === "session"
+          ? "无法签发会话"
+          : "邮箱或密码不正确";
+    await writeAudit(
+      { email: attempted, staffId: null },
+      {
+        action: "login.failed",
+        targetType: "staff",
+        targetId: null,
+        summary: `登录失败（${attempted}）：${reason}`,
+      },
+    );
     redirect(`/admin/login?error=${result.error}`);
   }
 
@@ -50,8 +86,27 @@ export async function adminLogin(formData: FormData) {
     await setAdminSession({ staffId: result.staffId, email: result.email });
   } catch (err) {
     console.error("Failed to set admin session:", err);
+    await writeAudit(
+      { email: result.email, staffId: result.staffId },
+      {
+        action: "login.failed",
+        targetType: "staff",
+        targetId: result.staffId,
+        summary: `登录失败（${result.email}）：无法签发会话`,
+      },
+    );
     redirect("/admin/login?error=session");
   }
+
+  await writeAudit(
+    { email: result.email, staffId: result.staffId },
+    {
+      action: "login",
+      targetType: "staff",
+      targetId: result.staffId,
+      summary: `登录后台（${result.email}）`,
+    },
+  );
   redirect("/admin");
 }
 
@@ -61,8 +116,8 @@ export async function adminLogout() {
 }
 
 export async function createProduct(formData: FormData) {
-  const denied = await ensureProductWriter();
-  if (denied) return denied;
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return gate;
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
@@ -78,6 +133,13 @@ export async function createProduct(formData: FormData) {
     };
   }
 
+  await writeAudit(gate.user, {
+    action: "product.create",
+    targetType: "product",
+    targetId: id,
+    summary: `新增商品「${input.name}」`,
+  });
+
   revalidatePath("/");
   revalidatePath("/admin");
   redirect(`/admin/products/${id}/edit?saved=1`);
@@ -91,8 +153,8 @@ export async function createProductAction(
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-  const denied = await ensureProductWriter();
-  if (denied) return denied;
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return gate;
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
@@ -107,6 +169,13 @@ export async function updateProduct(id: string, formData: FormData) {
     };
   }
 
+  await writeAudit(gate.user, {
+    action: "product.update",
+    targetType: "product",
+    targetId: id,
+    summary: `更新商品「${input.name}」`,
+  });
+
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath(`/products/${input.category}`);
@@ -114,8 +183,10 @@ export async function updateProduct(id: string, formData: FormData) {
 }
 
 export async function deleteProduct(id: string) {
-  const denied = await ensureProductWriter();
-  if (denied) return denied;
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return gate;
+
+  const existing = await fetchProductById(id);
 
   try {
     await deleteProductRecord(id);
@@ -123,14 +194,21 @@ export async function deleteProduct(id: string) {
     return { ok: false as const, message: err instanceof Error ? err.message : "删除失败" };
   }
 
+  await writeAudit(gate.user, {
+    action: "product.delete",
+    targetType: "product",
+    targetId: id,
+    summary: existing ? `删除商品「${existing.name}」` : `删除商品 ${id}`,
+  });
+
   revalidatePath("/");
   revalidatePath("/admin");
   return { ok: true as const, message: "已删除" };
 }
 
 export async function uploadProductImageAction(formData: FormData) {
-  const denied = await ensureProductWriter();
-  if (denied) return denied;
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return gate;
 
   const file = formData.get("file") as File | null;
   const category = String(formData.get("category") ?? "misc");
@@ -141,6 +219,12 @@ export async function uploadProductImageAction(formData: FormData) {
 
   try {
     const url = await uploadProductImage(file, category);
+    await writeAudit(gate.user, {
+      action: "product.image",
+      targetType: "product",
+      targetId: null,
+      summary: `上传商品图片 ${file.name || url}`,
+    });
     return { ok: true as const, url };
   } catch (err) {
     return {
@@ -151,8 +235,8 @@ export async function uploadProductImageAction(formData: FormData) {
 }
 
 export async function batchImportImages(formData: FormData) {
-  const denied = await ensureProductWriter();
-  if (denied) return { ...denied, results: [] };
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return { ...gate, results: [] };
 
   const category = String(formData.get("category") ?? "");
   const autoMatch = formData.get("autoMatch") === "on";
@@ -212,9 +296,20 @@ export async function batchImportImages(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/admin");
 
+  const matched = results.filter((item) => item.status === "matched").length;
+  const unmatched = results.filter((item) => item.status === "unmatched").length;
+  const failed = results.filter((item) => item.status === "error").length;
+
+  await writeAudit(gate.user, {
+    action: "product.import",
+    targetType: "product",
+    targetId: category || null,
+    summary: `批量导入图片：${matched} 成功，${unmatched} 未匹配，${failed} 失败`,
+  });
+
   return {
     ok: true as const,
-    message: `处理完成：${results.filter((r) => r.status === "matched").length} 成功，${results.filter((r) => r.status === "unmatched").length} 未匹配，${results.filter((r) => r.status === "error").length} 失败`,
+    message: `处理完成：${matched} 成功，${unmatched} 未匹配，${failed} 失败`,
     results,
   };
 }
@@ -237,6 +332,13 @@ export async function updateStoreSettings(
     };
   }
 
+  await writeAudit(user, {
+    action: "settings.save",
+    targetType: "store_settings",
+    targetId: "default",
+    summary: "保存店铺设置",
+  });
+
   revalidatePath("/admin/settings");
 
   return { ok: true as const, message: "保存成功" };
@@ -252,6 +354,17 @@ export async function transitionOrderStatusAction(orderId: string, status: Order
   }
 
   const result = await transitionOrderStatus(orderId, status);
+  if (result.ok && result.fromStatus) {
+    const enteredCompleted = status === "completed";
+    const leftCompleted = result.fromStatus === "completed";
+    const extra = enteredCompleted ? "，已写入回款时间" : leftCompleted ? "，已清除回款时间" : "";
+    await writeAudit(user, {
+      action: "order.status",
+      targetType: "order",
+      targetId: orderId,
+      summary: `订单状态：${ORDER_STATUS_LABELS[result.fromStatus]} → ${ORDER_STATUS_LABELS[status]}${extra}`,
+    });
+  }
   revalidatePath("/admin/orders");
   return result;
 }
