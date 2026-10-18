@@ -110,7 +110,7 @@ export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled
     <div className="space-y-4">
       {notificationsEnabled && (
         <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-          已开启接单通知。新订单落库时会通知店主和打开该开关的店员（推送与铃声尚未接入）。
+          已开启接单通知。新订单会给店主和打开该开关的店员写入站内通知，可在右上角铃铛查看。
         </p>
       )}
 

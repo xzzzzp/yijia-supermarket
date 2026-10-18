@@ -41,6 +41,13 @@ export interface CreateStaffInput extends StaffWriteInput {
 
 export type LoginFailure = "invalid" | "db" | "session";
 
+export interface StaffMutationResult {
+  ok: boolean;
+  message: string;
+  staffId?: string;
+  email?: string;
+}
+
 function toIso(value: Date | string): string {
   if (value instanceof Date) return value.toISOString();
   const parsed = new Date(value);
@@ -280,7 +287,7 @@ export async function listNotificationRecipients(): Promise<StaffRecord[]> {
 
 export async function createStaffMember(
   input: CreateStaffInput,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<StaffMutationResult> {
   const email = input.email.trim().toLowerCase();
   if (!email || !email.includes("@")) {
     return { ok: false, message: "请填写有效邮箱" };
@@ -345,13 +352,13 @@ export async function createStaffMember(
     return { ok: false, message: err instanceof Error ? err.message : "保存店员失败" };
   }
 
-  return { ok: true, message: "已添加店员" };
+  return { ok: true, message: "已添加店员", staffId: record.id, email: record.email };
 }
 
 export async function updateStaffMember(
   id: string,
   input: StaffWriteInput,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<StaffMutationResult> {
   const directory = await loadStaffDirectory();
   if (directory.unavailable) {
     return { ok: false, message: directory.warning ?? "无法读取店员表" };
@@ -430,13 +437,13 @@ export async function updateStaffMember(
     return { ok: false, message: err instanceof Error ? err.message : "保存店员失败" };
   }
 
-  return { ok: true, message: "店员权限已保存" };
+  return { ok: true, message: "店员权限已保存", staffId: id, email: existing.email };
 }
 
 export async function deleteStaffMember(
   id: string,
   actor: { id: string; email: string },
-): Promise<{ ok: boolean; message: string }> {
+): Promise<StaffMutationResult> {
   const directory = await loadStaffDirectory();
   if (directory.unavailable) {
     return { ok: false, message: directory.warning ?? "无法读取店员表" };
@@ -466,5 +473,5 @@ export async function deleteStaffMember(
     return { ok: false, message: err instanceof Error ? err.message : "删除店员失败" };
   }
 
-  return { ok: true, message: "已删除店员" };
+  return { ok: true, message: "已删除店员", staffId: id, email: existing.email };
 }

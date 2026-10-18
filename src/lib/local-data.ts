@@ -3,6 +3,8 @@ import "server-only";
 import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import type { AuditLogRecord } from "@/types/audit";
+import type { OrderNotificationRecord } from "@/types/notification";
 import type { OrderRecord, OrderStatus } from "@/types/order";
 import type { StaffRecord } from "@/types/staff";
 import type { StoreSettings } from "@/types/settings";
@@ -13,6 +15,8 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
 const STAFF_FILE = path.join(DATA_DIR, "staff.json");
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
+const AUDIT_FILE = path.join(DATA_DIR, "audit-logs.json");
 
 export async function readLocalSettings(): Promise<StoreSettings> {
   try {
@@ -76,11 +80,13 @@ export async function appendLocalOrder(
 export async function updateLocalOrderStatus(
   orderId: string,
   status: OrderStatus,
-  completedAt: string | null = status === "completed" ? new Date().toISOString() : null,
-): Promise<boolean> {
+  completedAt: string | null,
+  expectedStatus?: OrderStatus,
+): Promise<"updated" | "missing" | "conflict"> {
   const orders = await readLocalOrders();
   const index = orders.findIndex((order) => order.id === orderId);
-  if (index === -1) return false;
+  if (index === -1) return "missing";
+  if (expectedStatus && orders[index].status !== expectedStatus) return "conflict";
 
   orders[index] = normalizeOrderRecord({
     ...orders[index],
@@ -90,7 +96,7 @@ export async function updateLocalOrderStatus(
 
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(ORDERS_FILE, JSON.stringify(orders, null, 2));
-  return true;
+  return "updated";
 }
 
 function normalizeStaffRecord(row: Partial<StaffRecord>): StaffRecord | null {
@@ -128,4 +134,126 @@ export async function readLocalStaff(): Promise<StaffRecord[]> {
 export async function writeLocalStaff(staff: StaffRecord[]): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(STAFF_FILE, JSON.stringify(staff, null, 2));
+}
+
+function notificationKey(record: Pick<OrderNotificationRecord, "orderId" | "recipientStaffId" | "channel">): string {
+  return `${record.orderId}:${record.recipientStaffId}:${record.channel}`;
+}
+
+function normalizeNotification(row: Partial<OrderNotificationRecord>): OrderNotificationRecord | null {
+  if (!row.notificationId || !row.orderId || !row.recipientStaffId) return null;
+  if (row.channel !== "in_app") return null;
+  return {
+    notificationId: row.notificationId,
+    orderId: row.orderId,
+    recipientStaffId: row.recipientStaffId,
+    channel: "in_app",
+    createdAt: row.createdAt ?? new Date().toISOString(),
+    readAt: row.readAt ?? null,
+  };
+}
+
+export async function readLocalNotifications(): Promise<OrderNotificationRecord[]> {
+  try {
+    const raw = await fs.readFile(NOTIFICATIONS_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<OrderNotificationRecord>[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((row) => {
+      const record = normalizeNotification(row);
+      return record ? [record] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function writeLocalNotifications(records: OrderNotificationRecord[]): Promise<void> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(NOTIFICATIONS_FILE, JSON.stringify(records, null, 2));
+}
+
+export async function appendLocalNotifications(records: OrderNotificationRecord[]): Promise<number> {
+  if (!records.length) return 0;
+  const existing = await readLocalNotifications();
+  const keys = new Set(existing.map(notificationKey));
+  let added = 0;
+
+  for (const record of records) {
+    const normalized = normalizeNotification(record);
+    if (!normalized) continue;
+    const key = notificationKey(normalized);
+    if (keys.has(key)) continue;
+    existing.unshift(normalized);
+    keys.add(key);
+    added += 1;
+  }
+
+  if (added > 0) await writeLocalNotifications(existing);
+  return added;
+}
+
+export async function markLocalNotificationRead(
+  notificationId: string,
+  recipientStaffId: string,
+  readAt: string,
+): Promise<"updated" | "already" | "missing"> {
+  const records = await readLocalNotifications();
+  const index = records.findIndex(
+    (record) => record.notificationId === notificationId && record.recipientStaffId === recipientStaffId,
+  );
+  if (index === -1) return "missing";
+  if (records[index].readAt) return "already";
+  records[index] = { ...records[index], readAt };
+  await writeLocalNotifications(records);
+  return "updated";
+}
+
+export async function markAllLocalNotificationsRead(recipientStaffId: string, readAt: string): Promise<number> {
+  const records = await readLocalNotifications();
+  let updated = 0;
+  const next = records.map((record) => {
+    if (record.recipientStaffId !== recipientStaffId || record.channel !== "in_app" || record.readAt) {
+      return record;
+    }
+    updated += 1;
+    return { ...record, readAt };
+  });
+  if (updated > 0) await writeLocalNotifications(next);
+  return updated;
+}
+
+function normalizeAudit(row: Partial<AuditLogRecord>): AuditLogRecord | null {
+  if (!row.id || !row.actorEmail || !row.action || !row.targetType || !row.summary) return null;
+  return {
+    id: row.id,
+    createdAt: row.createdAt ?? new Date().toISOString(),
+    actorEmail: row.actorEmail,
+    actorStaffId: row.actorStaffId ?? null,
+    action: row.action,
+    targetType: row.targetType,
+    targetId: row.targetId ?? null,
+    summary: row.summary,
+    ip: row.ip ?? null,
+  };
+}
+
+export async function readLocalAuditLogs(): Promise<AuditLogRecord[]> {
+  try {
+    const raw = await fs.readFile(AUDIT_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<AuditLogRecord>[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((row) => {
+      const record = normalizeAudit(row);
+      return record ? [record] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function appendLocalAuditLog(record: AuditLogRecord): Promise<void> {
+  const logs = await readLocalAuditLogs();
+  logs.unshift(record);
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(AUDIT_FILE, JSON.stringify(logs.slice(0, 500), null, 2));
 }

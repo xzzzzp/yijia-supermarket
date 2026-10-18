@@ -132,7 +132,7 @@ function statusUpdateMessage(status: OrderStatus): string {
 export async function transitionOrderStatus(
   orderId: string,
   status: OrderStatus,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; fromStatus?: OrderStatus }> {
   if (!isOrderStatus(status)) {
     return { ok: false, message: "无效的订单状态" };
   }
@@ -147,25 +147,40 @@ export async function transitionOrderStatus(
     return { ok: false, message: "只能按履约顺序前进或退回一步" };
   }
 
-  return updateOrderStatus(orderId, status);
+  const result = await updateOrderStatus(orderId, status, current.status);
+  if (!result.ok) return result;
+  return { ...result, fromStatus: current.status };
 }
 
 export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus,
+  expectedStatus?: OrderStatus,
 ): Promise<{ ok: boolean; message: string }> {
-  const completedAt = status === "completed" ? new Date().toISOString() : null;
+  const completedAt = status === "completed" ? new Date() : null;
 
   if (isMysqlConfigured()) {
     try {
       const result = await mysqlExecute(
-        "UPDATE orders SET status = ?, completed_at = ? WHERE id = ?",
-        [status, completedAt ? new Date(completedAt) : null, orderId],
+        expectedStatus
+          ? "UPDATE orders SET status = ?, completed_at = ? WHERE id = ? AND status = ?"
+          : "UPDATE orders SET status = ?, completed_at = ? WHERE id = ?",
+        expectedStatus
+          ? [status, completedAt, orderId, expectedStatus]
+          : [status, completedAt, orderId],
       );
       if (result.affectedRows > 0) {
         return { ok: true, message: statusUpdateMessage(status) };
       }
-      return { ok: false, message: "未找到该订单" };
+
+      const existing = await mysqlQuery<RowDataPacket[]>(
+        "SELECT id FROM orders WHERE id = ? LIMIT 1",
+        [orderId],
+      );
+      if (!existing.length) {
+        return { ok: false, message: "未找到该订单" };
+      }
+      return { ok: false, message: "订单状态已变化，请刷新后再操作" };
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message.includes("orders_status_chk") || message.includes("Check constraint")) {
@@ -176,9 +191,17 @@ export async function updateOrderStatus(
     }
   }
 
-  const updated = await updateLocalOrderStatus(orderId, status, completedAt);
-  if (!updated) {
+  const updated = await updateLocalOrderStatus(
+    orderId,
+    status,
+    completedAt ? completedAt.toISOString() : null,
+    expectedStatus,
+  );
+  if (updated === "missing") {
     return { ok: false, message: "未找到该订单" };
+  }
+  if (updated === "conflict") {
+    return { ok: false, message: "订单状态已变化，请刷新后再操作" };
   }
 
   return { ok: true, message: statusUpdateMessage(status) };
