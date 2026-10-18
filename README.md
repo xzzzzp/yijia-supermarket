@@ -10,7 +10,7 @@
 | 样式 | Tailwind CSS 4 |
 | 数据库 | MySQL（未配置时订单/店员回退本地 JSON，商品用内置示例） |
 | 认证 | 店员邮箱密码（MySQL）或 `ADMIN_DEV` 开发账号；会话为签名 Cookie |
-| 部署 | Vercel |
+| 部署 | 阿里云（`deploy/deploy.sh`，build 前必须有 `.env.local`）；也可 Vercel |
 | 购物车 | localStorage |
 | 下单 | 华人 → WeChat / 本地人 → Telegram |
 
@@ -71,6 +71,46 @@ src/
   └── 俄语/乌兹别克语 → 生成订单 → 跳转 Telegram
 ```
 
+## 生产部署（阿里云）
+
+用 `deploy/deploy.sh` 把代码 rsync 到服务器，再在应用目录执行 `npm ci` 和 `npm run build`。**先放好应用目录里的 `.env.local`，再 build。** 模板是 `deploy/env.production.example`。
+
+```bash
+# 在服务器应用目录（deploy.sh 使用 /var/www/yijia-supermarket）
+cp deploy/env.production.example .env.local
+# 把占位符改成生产值，然后再跑 deploy/deploy.sh，或在该目录执行 npm run build
+```
+
+服务器上还没有 `.env.local` 时，`deploy/deploy.sh` 会从模板复制一份，然后退出。这次不会 build。填好生产值后重新部署，才会继续。
+
+`deploy/deploy.sh` 在远端 `npm run build` 之前执行 `deploy/check-env.sh`。下面任意一条不满足就会报错退出，不会静默 build：
+
+- `NEXT_PUBLIC_BASE_PATH=/yijia`
+- 已配置 MySQL（`MYSQL_URL`，或同时有 `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`），或 `ADMIN_DEV_EMAIL` 与 `ADMIN_DEV_PASSWORD` 成对存在
+- 有 `ADMIN_SESSION_SECRET` 或 `ADMIN_DEV_PASSWORD`（用来签发后台会话；生产应使用独立的长随机 `ADMIN_SESSION_SECRET`）
+
+### 必填环境变量
+
+| 变量 | 作用 |
+|------|------|
+| `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`（以及 `MYSQL_PASSWORD` / `MYSQL_PORT`），或单一 `MYSQL_URL` | 生产库。`getAdminAuthMode()` 据此返回 `mysql` |
+| `ADMIN_SESSION_SECRET` | 后台会话签名 |
+| `ADMIN_DEV_EMAIL`、`ADMIN_DEV_PASSWORD` | `staff` 表为空时创建第一名店主，必须成对填写 |
+| `NEXT_PUBLIC_BASE_PATH` | 固定为 `/yijia`，否则静态资源 404 |
+| `NEXT_PUBLIC_SITE_URL` | 站点对外地址，例如 `http://<主机>/yijia` |
+| `ALLOWED_DEV_ORIGINS` | 允许的来源主机，逗号分隔 |
+
+### 为什么必须带 env 再 build
+
+`/admin/login` 在 `next build` 时预渲染。服务端 `getAdminAuthMode()` 读取环境变量，返回 `mysql`、`dev` 或 `none`。build 时如果既没有 MySQL 配置，也没有成对的 `ADMIN_DEV_EMAIL` 和 `ADMIN_DEV_PASSWORD`，静态页会把 `authMode=none` 写死，登录页出现黄框「尚未配置登录方式 / 请复制 .env.example 为 .env.local」。
+
+Next 在 **build** 时读取应用目录的 `.env.local`。`deploy/ecosystem.config.cjs` 只传 `NODE_ENV` 和 `PORT`。补上 `.env.local` 之后要重新 `npm run build`。只做 `pm2 restart` 时，已经预渲染进静态页的登录方式不会变。
+
+### 保护 `.env.local`
+
+- `deploy/deploy.sh` 的 rsync 排除 `.env.local`，并且没有 `--delete-excluded`。`--delete` 会保留服务器上已有的这份文件。保持这条 exclude。
+- `.gitignore` 已忽略 `.env*`。`.env.local` 和真实密钥留在服务器上，不要提交到仓库。示例文件继续只用占位符。
+
 ## 部署到 Vercel
 
 ```bash
@@ -78,7 +118,7 @@ npm i -g vercel
 vercel
 ```
 
-在 Vercel 项目设置中添加环境变量（同 `.env.example`）。
+在 Vercel 项目设置中添加环境变量（同 `.env.example`，生产路径与必填项见上一节）。Vercel 同样在 build 时注入环境变量；缺少 MySQL 与成对的 `ADMIN_DEV_*` 时，登录页也会被预渲染成 `authMode=none`。改环境变量后需要重新部署以触发 build。
 
 ## 后台管理
 
