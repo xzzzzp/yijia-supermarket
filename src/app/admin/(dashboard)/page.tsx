@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin, getAdminAuthMode } from "@/lib/admin-auth";
+import { listCategories } from "@/lib/categories.server";
 import { fetchAllProducts } from "@/lib/products.server";
 import { canViewOrders, hasCapability } from "@/lib/staff-access";
 import { AccessDenied } from "@/components/admin/AccessDenied";
@@ -17,7 +18,7 @@ export default async function AdminPage() {
     );
   }
 
-  const products = await fetchAllProducts();
+  const [products, directory] = await Promise.all([fetchAllProducts(), listCategories()]);
   const authMode = getAdminAuthMode();
 
   return (
@@ -40,7 +41,7 @@ export default async function AdminPage() {
           + 新增商品
         </Link>
       </div>
-      <ProductTable products={products} />
+      <ProductTable products={products} categories={directory.categories} />
     </>
   );
 }

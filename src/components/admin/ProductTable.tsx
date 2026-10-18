@@ -3,21 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { Product, ProductCategory } from "@/types/product";
-import { CATEGORIES, getCategoryInfo } from "@/types/product";
+import type { CategoryInfo, Product } from "@/types/product";
 import { formatPrice } from "@/lib/products";
 import { ProductImage } from "@/components/ProductImage";
 import { deleteProduct } from "@/app/admin/actions";
 
 interface ProductTableProps {
   products: Product[];
+  categories: CategoryInfo[];
 }
 
-export function ProductTable({ products }: ProductTableProps) {
+export function ProductTable({ products, categories }: ProductTableProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [category, setCategory] = useState<ProductCategory | "">("");
+  const [category, setCategory] = useState("");
   const [keyword, setKeyword] = useState("");
 
   const categoryCounts = useMemo(() => {
@@ -64,11 +64,11 @@ export function ProductTable({ products }: ProductTableProps) {
           <select
             id="admin-category"
             value={category}
-            onChange={(e) => setCategory(e.target.value as ProductCategory | "")}
+            onChange={(e) => setCategory(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-500"
           >
             <option value="">全部分类（{products.length}）</option>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat.slug} value={cat.slug}>
                 {cat.nameZh} ({categoryCounts[cat.slug] ?? 0})
               </option>
@@ -122,7 +122,7 @@ export function ProductTable({ products }: ProductTableProps) {
             </thead>
             <tbody>
               {filtered.map((p) => {
-                const catInfo = getCategoryInfo(p.category);
+                const catInfo = categories.find((cat) => cat.slug === p.category);
                 return (
                   <tr key={p.id} className="border-b border-slate-50 last:border-b-0">
                     <td className="px-4 py-3">

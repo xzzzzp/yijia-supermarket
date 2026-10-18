@@ -1,5 +1,5 @@
 import type { Product, ProductCategory } from "@/types/product";
-import { CATEGORIES } from "@/types/product";
+import { getCategoryInfo } from "@/types/product";
 
 export const SEED_PRODUCTS: Product[] = [
   {
@@ -169,9 +169,12 @@ export function formatPrice(price: number): string {
   return `${price.toLocaleString("ru-RU")} UZS`;
 }
 
-export function mapProductRow(row: Record<string, unknown>): Product {
-  const category = row.category as ProductCategory;
-  const catInfo = CATEGORIES.find((c) => c.slug === category);
+export function mapProductRow(
+  row: Record<string, unknown>,
+  categoryNames?: ReadonlyMap<string, string>,
+): Product {
+  const category = String(row.category ?? "");
+  const catInfo = getCategoryInfo(category);
 
   return {
     id: row.id as string,
@@ -190,7 +193,7 @@ export function mapProductRow(row: Record<string, unknown>): Product {
     createdAt: row.created_at as string,
     sortOrder: row.sort_order as number,
     category,
-    categoryName: catInfo?.nameZh ?? category,
+    categoryName: categoryNames?.get(category) || catInfo?.nameZh || category,
     categoryRoute: `/products/${category}`,
   };
 }

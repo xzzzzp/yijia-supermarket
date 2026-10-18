@@ -23,6 +23,8 @@ import { isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import type { OrderStatus } from "@/types/order";
 import type { AdminSession } from "@/types/staff";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
+import { categoryAssignmentMessage } from "@/lib/categories";
+import { getCategoryBySlug } from "@/lib/categories.server";
 import { parseProductForm, validateProductInput } from "@/types/admin";
 import type { BatchImportResult } from "@/types/admin";
 import type { AuditAction } from "@/types/audit";
@@ -121,6 +123,8 @@ export async function createProduct(formData: FormData) {
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
+  const categoryError = categoryAssignmentMessage(await getCategoryBySlug(input.category));
+  if (categoryError) return { ok: false as const, message: categoryError };
 
   let id: string;
   try {
@@ -158,6 +162,8 @@ export async function updateProduct(id: string, formData: FormData) {
   const input = parseProductForm(formData);
   const error = validateProductInput(input);
   if (error) return { ok: false as const, message: error };
+  const categoryError = categoryAssignmentMessage(await getCategoryBySlug(input.category));
+  if (categoryError) return { ok: false as const, message: categoryError };
 
   try {
     await updateProductRecord(id, input);

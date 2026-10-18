@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
+import { listCategories } from "@/lib/categories.server";
 import { fetchProductById } from "@/lib/products.server";
 import { hasCapability } from "@/lib/staff-access";
 import { AccessDenied } from "@/components/admin/AccessDenied";
@@ -19,7 +20,7 @@ export default async function EditProductPage({
 
   const { id } = await params;
   const { saved } = await searchParams;
-  const product = await fetchProductById(id);
+  const [product, directory] = await Promise.all([fetchProductById(id), listCategories()]);
 
   if (!product) {
     notFound();
@@ -34,7 +35,7 @@ export default async function EditProductPage({
           商品创建成功
         </p>
       )}
-      <ProductForm mode="edit" product={product} />
+      <ProductForm mode="edit" product={product} categories={directory.categories} />
     </>
   );
 }
