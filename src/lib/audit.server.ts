@@ -114,7 +114,13 @@ export async function recordAudit(input: RecordAuditInput): Promise<void> {
   }
 }
 
-export async function listAuditLogs(): Promise<{ logs: AuditLogRecord[]; warning?: string }> {
+export async function listAuditLogs(
+  actor: { isOwner: boolean },
+): Promise<{ logs: AuditLogRecord[]; warning?: string }> {
+  if (!actor.isOwner) {
+    return { logs: [], warning: "仅店主可以查看操作日志" };
+  }
+
   try {
     if (!isMysqlConfigured()) {
       const logs = await readLocalAuditLogs();

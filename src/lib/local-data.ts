@@ -52,6 +52,7 @@ export async function readLocalOrders(): Promise<OrderRecord[]> {
         orderText: order.orderText ?? "",
         createdAt: order.createdAt ?? new Date().toISOString(),
         completedAt: order.completedAt,
+        requestToken: order.requestToken,
       }),
     );
   } catch {
@@ -61,12 +62,19 @@ export async function readLocalOrders(): Promise<OrderRecord[]> {
 
 export async function appendLocalOrder(
   order: Omit<OrderRecord, "id" | "createdAt" | "status" | "completedAt">,
-): Promise<string> {
+): Promise<{ id: string; created: boolean }> {
   const orders = await readLocalOrders();
+  const token = order.requestToken?.trim();
+  if (token) {
+    const existing = orders.find((item) => item.requestToken === token);
+    if (existing) return { id: existing.id, created: false };
+  }
+
   const id = randomUUID();
   const record: OrderRecord = normalizeOrderRecord({
     ...order,
     id,
+    requestToken: token || null,
     status: "pending",
     createdAt: new Date().toISOString(),
     completedAt: null,
@@ -74,7 +82,7 @@ export async function appendLocalOrder(
   orders.unshift(record);
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(ORDERS_FILE, JSON.stringify(orders, null, 2));
-  return id;
+  return { id, created: true };
 }
 
 export async function updateLocalOrderStatus(

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS orders (
   completed_at DATETIME(3) NULL,
   CONSTRAINT orders_channel_chk CHECK (channel IN ('wechat', 'telegram')),
   CONSTRAINT orders_status_chk CHECK (status IN ('pending', 'confirmed', 'delivering', 'awaiting_remittance', 'completed')),
+  UNIQUE KEY orders_request_token_unique (request_token),
   KEY orders_status_idx (status),
   KEY orders_created_at_idx (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

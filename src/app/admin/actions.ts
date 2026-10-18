@@ -63,6 +63,22 @@ export async function adminLogin(formData: FormData) {
   const result = await loginStaff(email, password);
 
   if (!result.ok) {
+    const attempted = email.toLowerCase() || "（未填写）";
+    const reason =
+      result.error === "db"
+        ? "无法读取店员表"
+        : result.error === "session"
+          ? "无法签发会话"
+          : "邮箱或密码不正确";
+    await writeAudit(
+      { email: attempted, staffId: null },
+      {
+        action: "login.failed",
+        targetType: "staff",
+        targetId: null,
+        summary: `登录失败（${attempted}）：${reason}`,
+      },
+    );
     redirect(`/admin/login?error=${result.error}`);
   }
 
@@ -70,6 +86,15 @@ export async function adminLogin(formData: FormData) {
     await setAdminSession({ staffId: result.staffId, email: result.email });
   } catch (err) {
     console.error("Failed to set admin session:", err);
+    await writeAudit(
+      { email: result.email, staffId: result.staffId },
+      {
+        action: "login.failed",
+        targetType: "staff",
+        targetId: result.staffId,
+        summary: `登录失败（${result.email}）：无法签发会话`,
+      },
+    );
     redirect("/admin/login?error=session");
   }
 
@@ -194,6 +219,12 @@ export async function uploadProductImageAction(formData: FormData) {
 
   try {
     const url = await uploadProductImage(file, category);
+    await writeAudit(gate.user, {
+      action: "product.image",
+      targetType: "product",
+      targetId: null,
+      summary: `上传商品图片 ${file.name || url}`,
+    });
     return { ok: true as const, url };
   } catch (err) {
     return {

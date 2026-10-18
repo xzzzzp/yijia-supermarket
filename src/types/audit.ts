@@ -1,9 +1,11 @@
 export const AUDIT_ACTIONS = [
   "login",
+  "login.failed",
   "product.create",
   "product.update",
   "product.delete",
   "product.import",
+  "product.image",
   "order.status",
   "staff.create",
   "staff.update",
@@ -15,10 +17,12 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   login: "登录",
+  "login.failed": "登录失败",
   "product.create": "新增商品",
   "product.update": "更新商品",
   "product.delete": "删除商品",
   "product.import": "批量导入图片",
+  "product.image": "上传商品图片",
   "order.status": "订单状态变更",
   "staff.create": "新增店员",
   "staff.update": "更新店员",

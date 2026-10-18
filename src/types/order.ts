@@ -57,6 +57,8 @@ export interface OrderRecord {
   orderText: string;
   createdAt: string;
   completedAt?: string | null;
+  /** 下单幂等键。重复提交同一 token 必须回到这笔订单。 */
+  requestToken?: string | null;
 }
 
 export interface SoldProductStat {

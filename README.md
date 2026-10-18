@@ -119,7 +119,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。已有库只需再执行 `mysql/migrations/20261018_notifications_and_audit.sql`（`CREATE TABLE IF NOT EXISTS`，可重复执行），补上 `order_notifications` 和 `audit_logs`。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_notifications_and_audit.sql` 和 `mysql/migrations/20261018_orders_request_token_unique.sql`（都可重复执行），补上通知、操作日志，以及 `orders.request_token` 唯一索引。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
 
 ### 商品 CRUD
 

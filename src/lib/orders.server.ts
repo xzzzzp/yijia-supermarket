@@ -53,6 +53,25 @@ function parseItems(value: OrderItem[] | string): OrderItem[] {
   }
 }
 
+interface TokenOrderRow extends RowDataPacket {
+  id: string;
+  order_text: string;
+}
+
+function isDuplicateEntry(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code?: string }).code === "ER_DUP_ENTRY";
+}
+
+async function findMysqlOrderByToken(token: string): Promise<{ id: string; orderText: string } | null> {
+  const rows = await mysqlQuery<TokenOrderRow[]>(
+    "SELECT id, order_text FROM orders WHERE request_token = ? LIMIT 1",
+    [token],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return { id: row.id, orderText: row.order_text };
+}
+
 function rowToOrderRecord(row: OrderRow): OrderRecord {
   return normalizeOrderRecord({
     id: row.id,
@@ -70,48 +89,71 @@ function rowToOrderRecord(row: OrderRow): OrderRecord {
   });
 }
 
-export async function saveOrderRecord(input: SaveOrderInput): Promise<string> {
-  if (isMysqlConfigured()) {
-    const id = randomUUID();
-    await mysqlExecute(
-      `INSERT INTO orders (
-         id, channel, status, items, total, customer_name, customer_phone,
-         customer_address, note, order_text, request_token
-       ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.channel,
-        JSON.stringify(input.items),
-        input.total,
-        input.customerName ?? null,
-        input.customerPhone ?? null,
-        input.customerAddress ?? null,
-        input.note ?? null,
-        input.orderText,
-        input.requestToken,
-      ],
-    );
-    await dispatchNewOrderNotification(id);
-    return id;
+export async function saveOrderRecord(input: SaveOrderInput): Promise<{ id: string; orderText: string }> {
+  const requestToken = input.requestToken.trim();
+  if (!requestToken) {
+    throw new Error("订单请求标识无效");
   }
 
-  try {
-    const id = await appendLocalOrder({
-      channel: input.channel,
-      items: input.items,
-      total: input.total,
-      customerName: input.customerName ?? null,
-      customerPhone: input.customerPhone ?? null,
-      customerAddress: input.customerAddress ?? null,
-      note: input.note ?? null,
-      orderText: input.orderText,
-    });
+  if (isMysqlConfigured()) {
+    const existing = await findMysqlOrderByToken(requestToken);
+    if (existing) return existing;
+
+    const id = randomUUID();
+    try {
+      await mysqlExecute(
+        `INSERT INTO orders (
+           id, channel, status, items, total, customer_name, customer_phone,
+           customer_address, note, order_text, request_token
+         ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.channel,
+          JSON.stringify(input.items),
+          input.total,
+          input.customerName ?? null,
+          input.customerPhone ?? null,
+          input.customerAddress ?? null,
+          input.note ?? null,
+          input.orderText,
+          requestToken,
+        ],
+      );
+    } catch (err) {
+      if (isDuplicateEntry(err)) {
+        const again = await findMysqlOrderByToken(requestToken);
+        if (again) return again;
+      }
+      throw err;
+    }
+
     await dispatchNewOrderNotification(id);
-    return id;
-  } catch (err) {
-    console.warn("Failed to save order locally:", err);
-    return randomUUID();
+    return { id, orderText: input.orderText };
   }
+
+  const existingLocal = (await readLocalOrders()).find((order) => order.requestToken === requestToken);
+  if (existingLocal) {
+    return { id: existingLocal.id, orderText: existingLocal.orderText };
+  }
+
+  const saved = await appendLocalOrder({
+    channel: input.channel,
+    items: input.items,
+    total: input.total,
+    customerName: input.customerName ?? null,
+    customerPhone: input.customerPhone ?? null,
+    customerAddress: input.customerAddress ?? null,
+    note: input.note ?? null,
+    orderText: input.orderText,
+    requestToken,
+  });
+  if (!saved.created) {
+    const again = (await readLocalOrders()).find((order) => order.id === saved.id);
+    return { id: saved.id, orderText: again?.orderText ?? input.orderText };
+  }
+
+  await dispatchNewOrderNotification(saved.id);
+  return { id: saved.id, orderText: input.orderText };
 }
 
 export async function fetchOrderRecords(): Promise<OrderRecord[]> {
