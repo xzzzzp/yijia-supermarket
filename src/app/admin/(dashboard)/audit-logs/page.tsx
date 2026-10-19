@@ -31,7 +31,7 @@ export default async function AdminAuditLogsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">操作日志</h1>
         <p className="mt-1 text-sm text-slate-600">
-          记录登录成功和失败、商品新增/更新/删除/导入/上传图片、订单状态变更、店员变更和店铺设置保存。
+          记录登录成功和失败、商品新增/更新/删除/导入/上传图片、分类变更、订单状态变更、店员变更和店铺设置保存。
         </p>
       </div>
       {warning && (

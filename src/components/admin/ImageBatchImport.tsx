@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CATEGORIES } from "@/types/product";
+import { categoriesForProductForm } from "@/lib/categories";
+import type { CategoryInfo } from "@/types/product";
 import { batchImportImages } from "@/app/admin/actions";
 import type { BatchImportResult } from "@/types/admin";
 
-export function ImageBatchImport() {
-  const [category, setCategory] = useState("drinks");
+export function ImageBatchImport({ categories }: { categories: CategoryInfo[] }) {
+  const selectable = categoriesForProductForm(categories);
+  const [category, setCategory] = useState(selectable[0]?.slug ?? "misc");
   const [autoMatch, setAutoMatch] = useState(true);
   const [results, setResults] = useState<BatchImportResult[]>([]);
   const [message, setMessage] = useState("");
@@ -55,7 +57,7 @@ export function ImageBatchImport() {
               onChange={(e) => setCategory(e.target.value)}
               className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-red-500"
             >
-              {CATEGORIES.map((c) => (
+              {selectable.map((c) => (
                 <option key={c.slug} value={c.slug}>
                   {c.nameZh} ({c.slug})
                 </option>

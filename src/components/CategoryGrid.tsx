@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { CATEGORIES } from "@/types/product";
+import { categoriesForHome } from "@/lib/categories";
 import { getCategoryName } from "@/lib/i18n";
+import type { CategoryInfo } from "@/types/product";
 import { useLanguage } from "@/providers/LanguageProvider";
 
 const CATEGORY_COLORS = [
@@ -21,15 +22,16 @@ const CATEGORY_COLORS = [
   "bg-pink-100 text-pink-800",
 ];
 
-export function CategoryGrid() {
+export function CategoryGrid({ categories }: { categories: CategoryInfo[] }) {
   const { locale, t } = useLanguage();
+  const visible = categoriesForHome(categories);
 
   return (
     <section className="border-b border-surface-2 bg-surface px-5 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <h2 className="font-display text-xl font-semibold text-accent">{t("popularCategories")}</h2>
         <div className="scroll-rail mt-4 flex gap-3 overflow-x-auto pb-2">
-          {CATEGORIES.map((cat, i) => {
+          {visible.map((cat, i) => {
             const name = getCategoryName(locale, cat);
             const initial = name.charAt(0).toUpperCase();
             const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length];

@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import { listCategories } from "@/lib/categories.server";
 import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
 import { mapProductRow, SEED_PRODUCTS } from "@/lib/products";
 import type { ProductInput } from "@/types/admin";
@@ -27,31 +28,50 @@ interface ProductRow extends RowDataPacket {
   created_at: Date | string;
 }
 
-function mapDbProduct(row: ProductRow): Product {
+function mapDbProduct(row: ProductRow, categoryNames?: ReadonlyMap<string, string>): Product {
   const createdAt = row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at);
-  return mapProductRow({
-    ...row,
-    in_stock: Boolean(row.in_stock),
-    is_new: Boolean(row.is_new),
-    is_published: Boolean(row.is_published),
-    created_at: createdAt,
-  });
+  return mapProductRow(
+    {
+      ...row,
+      in_stock: Boolean(row.in_stock),
+      is_new: Boolean(row.is_new),
+      is_published: Boolean(row.is_published),
+      created_at: createdAt,
+    },
+    categoryNames,
+  );
+}
+
+async function loadCategoryNames(): Promise<Map<string, string>> {
+  try {
+    const { categories } = await listCategories();
+    return new Map(categories.map((category) => [category.slug, category.nameZh]));
+  } catch (err) {
+    console.error("Failed to load category names for products:", err);
+    return new Map();
+  }
 }
 
 export async function fetchProducts(): Promise<Product[]> {
   if (!isMysqlConfigured()) return SEED_PRODUCTS;
 
-  const rows = await mysqlQuery<ProductRow[]>(
-    "SELECT * FROM products WHERE is_published = 1 ORDER BY sort_order ASC, created_at ASC",
-  );
-  return rows.map(mapDbProduct);
+  const [rows, categoryNames] = await Promise.all([
+    mysqlQuery<ProductRow[]>(
+      "SELECT * FROM products WHERE is_published = 1 ORDER BY sort_order ASC, created_at ASC",
+    ),
+    loadCategoryNames(),
+  ]);
+  return rows.map((row) => mapDbProduct(row, categoryNames));
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
   if (!isMysqlConfigured()) return SEED_PRODUCTS;
 
-  const rows = await mysqlQuery<ProductRow[]>("SELECT * FROM products ORDER BY sort_order ASC, created_at ASC");
-  return rows.map(mapDbProduct);
+  const [rows, categoryNames] = await Promise.all([
+    mysqlQuery<ProductRow[]>("SELECT * FROM products ORDER BY sort_order ASC, created_at ASC"),
+    loadCategoryNames(),
+  ]);
+  return rows.map((row) => mapDbProduct(row, categoryNames));
 }
 
 export async function fetchProductById(id: string): Promise<Product | null> {
@@ -59,8 +79,11 @@ export async function fetchProductById(id: string): Promise<Product | null> {
     return SEED_PRODUCTS.find((product) => product.id === id) ?? null;
   }
 
-  const rows = await mysqlQuery<ProductRow[]>("SELECT * FROM products WHERE id = ? LIMIT 1", [id]);
-  return rows[0] ? mapDbProduct(rows[0]) : null;
+  const [rows, categoryNames] = await Promise.all([
+    mysqlQuery<ProductRow[]>("SELECT * FROM products WHERE id = ? LIMIT 1", [id]),
+    loadCategoryNames(),
+  ]);
+  return rows[0] ? mapDbProduct(rows[0], categoryNames) : null;
 }
 
 function bindProduct(input: ProductInput) {

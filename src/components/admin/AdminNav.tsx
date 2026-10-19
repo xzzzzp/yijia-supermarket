@@ -18,6 +18,7 @@ function BellIcon() {
 export function AdminNav({ user, unreadCount }: { user: AdminSession; unreadCount: number }) {
   const links = [
     { href: "/admin", label: "商品列表", visible: hasCapability(user, "manageProducts") },
+    { href: "/admin/categories", label: "热门分类", visible: hasCapability(user, "manageProducts") },
     { href: "/admin/orders", label: "订单管理", visible: canViewOrders(user) },
     { href: "/admin/settings", label: "店铺设置", visible: user.isOwner },
     { href: "/admin/products/new", label: "新增商品", visible: hasCapability(user, "manageProducts") },

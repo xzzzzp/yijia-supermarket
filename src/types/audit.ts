@@ -6,6 +6,9 @@ export const AUDIT_ACTIONS = [
   "product.delete",
   "product.import",
   "product.image",
+  "category.create",
+  "category.update",
+  "category.delete",
   "order.status",
   "staff.create",
   "staff.update",
@@ -23,6 +26,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   "product.delete": "删除商品",
   "product.import": "批量导入图片",
   "product.image": "上传商品图片",
+  "category.create": "新增分类",
+  "category.update": "更新分类",
+  "category.delete": "删除分类",
   "order.status": "订单状态变更",
   "staff.create": "新增店员",
   "staff.update": "更新店员",
@@ -33,6 +39,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 export const AUDIT_TARGET_LABELS: Record<string, string> = {
   staff: "店员",
   product: "商品",
+  category: "分类",
   order: "订单",
   store_settings: "店铺设置",
 };

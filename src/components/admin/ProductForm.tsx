@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import type { Product } from "@/types/product";
-import { CATEGORIES, type ProductCategory } from "@/types/product";
+import { categoriesForProductForm } from "@/lib/categories";
+import type { CategoryInfo, Product } from "@/types/product";
 import {
   createProductAction,
   updateProduct,
@@ -14,6 +14,7 @@ import { ProductImage } from "@/components/ProductImage";
 interface ProductFormProps {
   product?: Product;
   mode: "create" | "edit";
+  categories: CategoryInfo[];
 }
 
 const defaultValues = {
@@ -27,7 +28,7 @@ const defaultValues = {
   image: PLACEHOLDER_IMAGE,
   price: 0,
   sortOrder: 0,
-  category: "drinks" as ProductCategory,
+  category: "drinks",
   inStock: true,
   isNew: false,
   isPublished: true,
@@ -35,7 +36,9 @@ const defaultValues = {
 
 type ActionState = { ok: boolean; message: string } | null;
 
-export function ProductForm({ product, mode }: ProductFormProps) {
+export function ProductForm({ product, mode, categories }: ProductFormProps) {
+  const selectable = categoriesForProductForm(categories);
+  const currentMissing = Boolean(product && !selectable.some((category) => category.slug === product.category));
   const [image, setImage] = useState(product?.image ?? defaultValues.image);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -129,15 +132,22 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               <select
                 id="category"
                 name="category"
-                defaultValue={product?.category ?? "drinks"}
+                defaultValue={currentMissing ? "" : (product?.category ?? selectable[0]?.slug ?? "")}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-red-500"
+                required
               >
-                {CATEGORIES.map((c) => (
+                {currentMissing && <option value="">请改选启用中的分类</option>}
+                {selectable.map((c) => (
                   <option key={c.slug} value={c.slug}>
                     {c.nameZh} ({c.slug})
                   </option>
                 ))}
               </select>
+              {currentMissing && (
+                <p className="mt-1 text-xs text-amber-700">
+                  当前分类「{product?.categoryName || product?.category}」已停用或不存在，请先改到其他分类再保存。
+                </p>
+              )}
             </div>
           </div>
 
