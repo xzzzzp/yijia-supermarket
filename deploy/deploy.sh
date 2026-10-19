@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # 本地一键部署到阿里云（与 noodle-website 隔离：8080 -> 3001）
+# 远端 npm run build 前必须已有应用目录 .env.local（模板 deploy/env.production.example）。
+# rsync 排除 .env.local，且没有 --delete-excluded，--delete 不会删掉服务器上的该文件。
+# /admin/login 在 build 时预渲染；缺登录变量会把 authMode=none 写进静态页。只 pm2 restart 不够。
 set -euo pipefail
 
 SERVER="root@47.84.229.230"
@@ -23,13 +26,14 @@ cd /var/www/yijia-supermarket
 
 if [ ! -f .env.local ]; then
   cp deploy/env.production.example .env.local
-fi
-
-if ! grep -q '^NEXT_PUBLIC_BASE_PATH=/yijia' .env.local; then
-  echo "ERROR: .env.local 缺少 NEXT_PUBLIC_BASE_PATH=/yijia，静态资源会 404"
-  echo "请执行: cp deploy/env.production.example .env.local 并保留生产配置"
+  echo "ERROR: 服务器上没有 .env.local，已从 deploy/env.production.example 复制模板，但拒绝用占位符 build。" >&2
+  echo "请编辑 /var/www/yijia-supermarket/.env.local，填好 MYSQL_*（或 MYSQL_URL）、ADMIN_SESSION_SECRET、ADMIN_DEV_EMAIL、ADMIN_DEV_PASSWORD、NEXT_PUBLIC_BASE_PATH=/yijia、NEXT_PUBLIC_SITE_URL、ALLOWED_DEV_ORIGINS 后重新执行部署。" >&2
+  echo "/admin/login 在 next build 时预渲染。未填写就 build 会把登录方式写进静态页；事后只 pm2 restart 不会更新该页。" >&2
   exit 1
 fi
+
+# 缺 BASE_PATH、MySQL/ADMIN_DEV 或会话密钥时直接退出，不执行 npm run build。
+bash deploy/check-env.sh
 
 npm ci
 npm run build
