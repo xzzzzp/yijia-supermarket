@@ -20,8 +20,11 @@ export function getMysqlPool(): Pool {
 
   if (!pool) {
     const url = process.env.MYSQL_URL?.trim();
+    // 握手字符集就是 SET NAMES。只传连接串时不会用到下面的 charset，
+    // URL 上的 charset=latin1 会把 UTF-8 中文按 latin1 写进 utf8mb4 列。
+    const charset = "utf8mb4";
     pool = url
-      ? mysql.createPool(url)
+      ? mysql.createPool({ uri: url, charset })
       : mysql.createPool({
           host: process.env.MYSQL_HOST,
           port: Number(process.env.MYSQL_PORT || 3306),
@@ -30,7 +33,7 @@ export function getMysqlPool(): Pool {
           database: process.env.MYSQL_DATABASE,
           waitForConnections: true,
           connectionLimit: 10,
-          charset: "utf8mb4",
+          charset,
           timezone: "Z",
         });
   }
