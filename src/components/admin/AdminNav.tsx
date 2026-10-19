@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getBasePath } from "@/lib/paths";
 import { canViewOrders, hasCapability } from "@/lib/staff-access";
 import type { AdminSession } from "@/types/staff";
 
@@ -29,6 +30,10 @@ export function AdminNav({ user, unreadCount }: { user: AdminSession; unreadCoun
 
   const showBell = hasCapability(user, "orderNotifications");
   const badge = unreadCount > 99 ? "99+" : String(unreadCount);
+  // 原生 form action 不会像 next/link 那样自动加 basePath。写死 /admin/logout 会打到子路径外面，
+  // Cookie Path=/yijia 带不上，生产 nginx 也不把这个路径转给本应用。
+  const basePath = getBasePath();
+  const logoutAction = basePath ? `${basePath}/admin/logout/` : "/admin/logout";
 
   return (
     <nav className="mb-6 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-4">
@@ -56,7 +61,7 @@ export function AdminNav({ user, unreadCount }: { user: AdminSession; unreadCoun
             )}
           </Link>
         )}
-        <form action="/admin/logout" method="POST">
+        <form action={logoutAction} method="POST">
           <button
             type="submit"
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"

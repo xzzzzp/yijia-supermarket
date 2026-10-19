@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { isMysqlConfigured } from "@/lib/mysql";
 import { getCookiePath } from "@/lib/paths";
 
@@ -46,6 +46,29 @@ function sign(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
+/**
+ * 只在浏览器实际走 HTTPS 时加 Secure。
+ * 生产同时监听 HTTP，且没有强制跳到 HTTPS。若按 NODE_ENV=production 一律加 Secure，
+ * 浏览器会丢掉 Set-Cookie。登录 Server Action 仍会把后台页面流式返回，所以列表看起来已登录，
+ * 下一次打开编辑页是新请求，没有 Cookie，requireAdmin() 会转到 /admin/login?error=auth。
+ * Next 会根据连接或 nginx 的 X-Forwarded-Proto 写入该请求头（见 deploy/patch-nginx.sh）。
+ */
+async function requestIsHttps(): Promise<boolean> {
+  const headerStore = await headers();
+  const proto = headerStore.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  return proto === "https";
+}
+
+async function sessionCookieOptions(maxAge: number) {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: await requestIsHttps(),
+    path: getCookiePath(),
+    maxAge,
+  };
+}
+
 export async function setAdminSession(user: { staffId: string; email: string }): Promise<void> {
   const secret = sessionSecret();
   if (!secret) {
@@ -59,24 +82,12 @@ export async function setAdminSession(user: { staffId: string; email: string }):
   };
   const encoded = Buffer.from(JSON.stringify(body)).toString("base64url");
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, `${encoded}.${sign(encoded, secret)}`, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: getCookiePath(),
-    maxAge: SESSION_TTL_SECONDS,
-  });
+  cookieStore.set(SESSION_COOKIE, `${encoded}.${sign(encoded, secret)}`, await sessionCookieOptions(SESSION_TTL_SECONDS));
 }
 
 export async function clearAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: getCookiePath(),
-    maxAge: 0,
-  });
+  cookieStore.set(SESSION_COOKIE, "", await sessionCookieOptions(0));
 }
 
 export async function getAdminSession(): Promise<{ staffId: string; email: string } | null> {
