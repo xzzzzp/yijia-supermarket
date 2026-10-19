@@ -159,7 +159,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_notifications_and_audit.sql` 和 `mysql/migrations/20261018_orders_request_token_unique.sql`（都可重复执行），补上通知、操作日志，以及 `orders.request_token` 唯一索引。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql` 和 `mysql/migrations/20261018_orders_request_token_unique.sql`（都可重复执行），补上分类、通知、操作日志，以及 `orders.request_token` 唯一索引。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
 
 ### 商品 CRUD
 

@@ -4,6 +4,11 @@
 -- 不使用 Supabase。
 -- slug 与原先写死的分类一致，已有 products.category 不用改值。
 -- 描述种子沿用原来的俄语简介。
+-- 种子含中文和西里尔字母。先固定会话字符集，避免客户端默认 latin1 时写坏。
+-- 已经写坏的库不会被 INSERT IGNORE 改回来，请再执行
+-- mysql/migrations/20261019_repair_product_category_encoding.sql。
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS product_categories (
   slug VARCHAR(64) NOT NULL PRIMARY KEY,

@@ -12,6 +12,11 @@
 --
 -- 另有 product_categories（商品分类）、order_notifications（站内接单通知，仅 in_app）
 -- 和 audit_logs（后台操作日志）。
+--
+-- 下面的种子含中文和西里尔字母。先固定本次会话的客户端字符集，
+-- 避免 mysql 客户端默认 latin1 时把 UTF-8 字节写成乱码。
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS products (
   id CHAR(36) NOT NULL PRIMARY KEY,
