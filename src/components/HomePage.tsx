@@ -29,11 +29,9 @@ export function HomePage({
           className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-accent/5 blur-2xl"
           aria-hidden
         />
-        <div className="relative mx-auto max-w-6xl px-5 py-10 sm:px-6 lg:py-16">
-          <div className="ml-auto w-full max-w-xl space-y-4">
-            <SearchBar variant="hero" />
-            <BusinessHours />
-          </div>
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-5 sm:px-6 lg:py-8">
+          <SearchBar variant="hero" />
+          <BusinessHours />
         </div>
       </section>
 
