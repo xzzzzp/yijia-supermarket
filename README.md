@@ -83,6 +83,8 @@ cp deploy/env.production.example .env.local
 
 服务器上还没有 `.env.local` 时，`deploy/deploy.sh` 会从模板复制一份，然后退出。这次不会 build。填好生产值后重新部署，才会继续。
 
+后台会话 Cookie 的 `Secure` 跟随本次请求是否为 HTTPS（读 `X-Forwarded-Proto`，nginx 配置见 `deploy/patch-nginx.sh`）。生产 80 端口目前直接提供 `/yijia/`，没有跳到 HTTPS。若生产构建一律加 `Secure`，浏览器在 HTTP 上会丢掉 Cookie：登录的 Server Action 仍把商品列表渲染回来，看起来已经登录，但打开编辑页是新请求，没有 Cookie，会被送到 `/admin/login?error=auth`。HTTPS（包括自签证书，用户继续访问之后）会带上 `Secure`。
+
 `deploy/deploy.sh` 在远端 `npm run build` 之前执行 `deploy/check-env.sh`。下面任意一条不满足就会报错退出，不会静默 build：
 
 - `NEXT_PUBLIC_BASE_PATH=/yijia`
@@ -94,7 +96,7 @@ cp deploy/env.production.example .env.local
 | 变量 | 作用 |
 |------|------|
 | `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`（以及 `MYSQL_PASSWORD` / `MYSQL_PORT`），或单一 `MYSQL_URL` | 生产库。`getAdminAuthMode()` 据此返回 `mysql` |
-| `ADMIN_SESSION_SECRET` | 后台会话签名 |
+| `ADMIN_SESSION_SECRET` | 后台会话签名。Cookie 名 `yijia-admin-session`，`Path` 为 `NEXT_PUBLIC_BASE_PATH`（`/yijia`）。`Secure` 只在请求的 `X-Forwarded-Proto` 为 `https` 时设置，不要按 `NODE_ENV` 一律加 Secure |
 | `ADMIN_DEV_EMAIL`、`ADMIN_DEV_PASSWORD` | `staff` 表为空时创建第一名店主，必须成对填写 |
 | `NEXT_PUBLIC_BASE_PATH` | 固定为 `/yijia`，否则静态资源 404 |
 | `NEXT_PUBLIC_SITE_URL` | 站点对外地址，例如 `http://<主机>/yijia` |
