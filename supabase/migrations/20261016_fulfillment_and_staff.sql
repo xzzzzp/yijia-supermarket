@@ -1,5 +1,7 @@
 -- 已停用。订单和店员改由 MySQL 保存，请执行 mysql/schema.sql。
 -- 本文件是原先 Supabase 升级脚本，只作对照。
+-- 现行状态机已去掉 awaiting_remittance。已有 MySQL 库请执行
+-- mysql/migrations/20261020_drop_awaiting_remittance.sql，不要再套用下面的五态 CHECK。
 
 -- 已有库升级：订单履约状态 + 店员权限
 -- 在 Supabase SQL Editor 执行本文件，或重新执行 supabase/schema.sql 中对应段落。

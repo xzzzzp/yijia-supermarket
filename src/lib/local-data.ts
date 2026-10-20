@@ -9,6 +9,7 @@ import type { OrderRecord, OrderStatus } from "@/types/order";
 import type { StaffRecord } from "@/types/staff";
 import type { StoreSettings } from "@/types/settings";
 import { mergeStoreSettings } from "@/lib/store-settings-defaults";
+import { RETIRED_AWAITING_REMITTANCE_STATUS } from "@/lib/order-status";
 import { normalizeOrderRecord } from "@/lib/order-stats";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -38,8 +39,11 @@ export async function readLocalOrders(): Promise<OrderRecord[]> {
     const raw = await fs.readFile(ORDERS_FILE, "utf-8");
     const parsed = JSON.parse(raw) as Partial<OrderRecord>[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.map((order) =>
-      normalizeOrderRecord({
+    let migrated = false;
+    const orders = parsed.map((order) => {
+      const rawStatus = (order as { status?: unknown }).status;
+      if (rawStatus === RETIRED_AWAITING_REMITTANCE_STATUS) migrated = true;
+      return normalizeOrderRecord({
         id: order.id!,
         channel: order.channel!,
         status: order.status,
@@ -53,8 +57,13 @@ export async function readLocalOrders(): Promise<OrderRecord[]> {
         createdAt: order.createdAt ?? new Date().toISOString(),
         completedAt: order.completedAt,
         requestToken: order.requestToken,
-      }),
-    );
+      });
+    });
+    if (migrated) {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      await fs.writeFile(ORDERS_FILE, JSON.stringify(orders, null, 2));
+    }
+    return orders;
   } catch {
     return [];
   }

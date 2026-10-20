@@ -1,14 +1,13 @@
 -- 亿佳超市 MySQL 结构
 -- 目标版本：MySQL 8.0.16+（JSON 列与 CHECK 约束）。
 -- 在业务库中执行本文件即可建表。可重复执行（CREATE TABLE IF NOT EXISTS）。
--- 没有在线支付。completed = 配送员回店回款之后，只有该状态计入营收。
+-- 没有在线支付。completed = 配送员回店并交回货款之后，只有该状态计入营收。
 --
--- 履约顺序：
---   pending              待电话确认
---   confirmed            已确认待配送
---   delivering           配送中
---   awaiting_remittance  已收款待回款（当面已收款，货款尚未交回店铺）
---   completed            已完成（回店回款）
+-- 履约顺序（仅相邻 ±1）：
+--   pending     待确认
+--   confirmed   已确认
+--   delivering  配送中（出门、送达、当面收款；尚未回店交款）
+--   completed   已完成（回店并交回货款）
 --
 -- 另有 product_categories（商品分类）、order_notifications（站内接单通知，仅 in_app）
 -- 和 audit_logs（后台操作日志）。
@@ -89,7 +88,7 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   completed_at DATETIME(3) NULL,
   CONSTRAINT orders_channel_chk CHECK (channel IN ('wechat', 'telegram')),
-  CONSTRAINT orders_status_chk CHECK (status IN ('pending', 'confirmed', 'delivering', 'awaiting_remittance', 'completed')),
+  CONSTRAINT orders_status_chk CHECK (status IN ('pending', 'confirmed', 'delivering', 'completed')),
   UNIQUE KEY orders_request_token_unique (request_token),
   KEY orders_status_idx (status),
   KEY orders_created_at_idx (created_at)

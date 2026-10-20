@@ -1,32 +1,43 @@
 import type { OrderStatus } from "@/types/order";
 
-/** 履约顺序与产品文档 §5 建议方向一致。 */
+/**
+ * 履约只保留四态，且只能在相邻状态之间前进或退回一步：
+ * pending → confirmed ↔ delivering ↔ completed。
+ * pending 没有上一态。completed 只能退回 delivering。
+ */
 export const ORDER_STATUSES: readonly OrderStatus[] = [
   "pending",
   "confirmed",
   "delivering",
-  "awaiting_remittance",
   "completed",
 ] as const;
 
+/** 已下线。历史行迁移为 delivering，不能再作为目标状态。 */
+export const RETIRED_AWAITING_REMITTANCE_STATUS = "awaiting_remittance";
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  pending: "待电话确认",
-  confirmed: "已确认待配送",
+  pending: "待确认",
+  confirmed: "已确认",
   delivering: "配送中",
-  awaiting_remittance: "已收款待回款",
-  completed: "已完成（回店回款）",
+  completed: "已完成",
 };
 
 export const ORDER_STATUS_HINTS: Record<OrderStatus, string> = {
-  pending: "新订单，等待商家电话确认",
-  confirmed: "已电话确认，等待安排配送",
-  delivering: "配送员已出门配送",
-  awaiting_remittance: "已当面线下收款，货款尚未交回店铺",
-  completed: "配送员已回店回款，计入成交",
+  pending: "新订单，等待商家确认",
+  confirmed: "商家已确认，等待配送员出门",
+  delivering: "已出门配送，含送达和当面收款；货款尚未交回店铺",
+  completed: "配送员已回店并交回货款，计入成交",
 };
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === "string" && (ORDER_STATUSES as readonly string[]).includes(value);
+}
+
+/** 读到已下线的 awaiting_remittance 时并入 delivering，避免被当成已完成。 */
+export function coerceOrderStatus(value: unknown): OrderStatus {
+  if (value === RETIRED_AWAITING_REMITTANCE_STATUS) return "delivering";
+  if (isOrderStatus(value)) return value;
+  return "pending";
 }
 
 export function emptyStatusCounts(): Record<OrderStatus, number> {
@@ -34,7 +45,6 @@ export function emptyStatusCounts(): Record<OrderStatus, number> {
     pending: 0,
     confirmed: 0,
     delivering: 0,
-    awaiting_remittance: 0,
     completed: 0,
   };
 }
