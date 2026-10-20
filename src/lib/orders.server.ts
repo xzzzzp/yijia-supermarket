@@ -5,7 +5,12 @@ import type { RowDataPacket } from "mysql2";
 import { appendLocalOrder, readLocalOrders, updateLocalOrderStatus } from "@/lib/local-data";
 import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
 import { dispatchNewOrderNotification } from "@/lib/order-notifications";
-import { isAdjacentOrderStatus, isOrderStatus, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import {
+  isAdjacentOrderStatus,
+  isOrderStatus,
+  ORDER_STATUS_LABELS,
+  RETIRED_AWAITING_REMITTANCE_STATUS,
+} from "@/lib/order-status";
 import { normalizeOrderRecord } from "@/lib/order-stats";
 import type { OrderChannel, OrderItem, OrderRecord, OrderStatus } from "@/types/order";
 
@@ -215,18 +220,29 @@ export async function updateOrderStatus(
         return { ok: true, message: statusUpdateMessage(status) };
       }
 
-      const existing = await mysqlQuery<RowDataPacket[]>(
-        "SELECT id FROM orders WHERE id = ? LIMIT 1",
+      const existing = await mysqlQuery<(RowDataPacket & { status: string | null })[]>(
+        "SELECT id, status FROM orders WHERE id = ? LIMIT 1",
         [orderId],
       );
       if (!existing.length) {
         return { ok: false, message: "未找到该订单" };
       }
+      if (existing[0]?.status === RETIRED_AWAITING_REMITTANCE_STATUS) {
+        return {
+          ok: false,
+          message:
+            "该订单仍是已下线的「已收款待回款」。请先执行 mysql/migrations/20261020_drop_awaiting_remittance.sql，再刷新后操作。",
+        };
+      }
       return { ok: false, message: "订单状态已变化，请刷新后再操作" };
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message.includes("orders_status_chk") || message.includes("Check constraint")) {
-        return { ok: false, message: "订单状态约束未建立。请先执行 mysql/schema.sql。" };
+        return {
+          ok: false,
+          message:
+            "订单状态不被数据库接受。请先执行 mysql/migrations/20261020_drop_awaiting_remittance.sql，或在新库执行 mysql/schema.sql。",
+        };
       }
       console.error("Failed to update order in MySQL:", err);
       return { ok: false, message: "订单状态没有写入 MySQL" };

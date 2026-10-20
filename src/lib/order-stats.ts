@@ -1,8 +1,8 @@
-import { emptyStatusCounts, isOrderStatus } from "@/lib/order-status";
+import { coerceOrderStatus, emptyStatusCounts } from "@/lib/order-status";
 import type { OrderRecord, OrderStatsSummary, SoldProductStat } from "@/types/order";
 
 export function normalizeOrderRecord(order: Partial<OrderRecord> & Pick<OrderRecord, "id" | "channel" | "items" | "total" | "orderText" | "createdAt">): OrderRecord {
-  const status = isOrderStatus(order.status) ? order.status : "pending";
+  const status = coerceOrderStatus(order.status);
 
   return {
     id: order.id,
@@ -28,6 +28,7 @@ export function computeOrderStats(orders: OrderRecord[]): OrderStatsSummary {
 
   for (const order of orders) {
     statusCounts[order.status] += 1;
+    // 营收和热销只认已回店交款的 completed。配送中（含历史待回款）不计。
     if (order.status !== "completed") continue;
 
     totalRevenue += order.total;

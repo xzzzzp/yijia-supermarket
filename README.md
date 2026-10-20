@@ -136,13 +136,13 @@ vercel
 | `/admin/staff` | 店员权限（仅店主） |
 | `/admin/audit-logs` | 操作日志（仅店主） |
 
-支付仍是配送当面线下收款，没有在线支付。订单标成「已完成（回店回款）」的时刻是配送员回店并把货款交回店铺之后。
+支付仍是配送当面线下收款，没有在线支付。订单标成「已完成」的时刻是配送员回店并把货款交回店铺之后。配送中包含出门、送达和当面收款。
 
 ### 订单履约状态
 
-`pending` 待电话确认 → `confirmed` 已确认待配送 → `delivering` 配送中 → `awaiting_remittance` 已收款待回款 → `completed` 已完成（回店回款）。
+`pending` 待确认 → `confirmed` 已确认 → `delivering` 配送中 → `completed` 已完成。
 
-后台订单页可以按这个顺序前进一步或退回一步。只有 `completed` 会写入 `completed_at`，也只有 `completed` 计入营收和热销。旧数据里的 `pending`、`completed` 含义不变。未配置 MySQL 时，订单写在 `data/orders.json`。
+后台订单页只能在相邻状态之间前进一步或退回一步。`pending` 没有上一态；从 `completed` 只能退回 `delivering`。只有进入 `completed` 会写入 `completed_at`，离开时会清掉。也只有 `completed` 计入营收和热销。未配置 MySQL 时，订单写在 `data/orders.json`；若文件里还有已下线的 `awaiting_remittance`，读取时会一次性改成 `delivering`。操作日志里的旧状态原文保持不动。
 
 ### 店员权限
 
@@ -161,7 +161,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql` 和 `mysql/migrations/20261018_orders_request_token_unique.sql`（都可重复执行），补上分类、通知、操作日志，以及 `orders.request_token` 唯一索引。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql`、`mysql/migrations/20261018_orders_request_token_unique.sql` 和 `mysql/migrations/20261020_drop_awaiting_remittance.sql`（都可重复执行），补上分类、通知、操作日志、`orders.request_token` 唯一索引，以及四态订单状态。`20261020` 必须在部署去掉「已收款待回款」的应用之前执行：它把 `awaiting_remittance` 改成 `delivering`（并清空这些行的 `completed_at`），收紧状态约束，且不改写 `audit_logs`。需要 MySQL 8.0.19+（`DROP CHECK`）。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
 
 ### 商品 CRUD
 

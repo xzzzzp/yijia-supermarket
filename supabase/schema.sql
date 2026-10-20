@@ -27,7 +27,7 @@ create table if not exists products (
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   channel text not null check (channel in ('wechat', 'telegram')),
-  status text not null default 'pending' check (status in ('pending', 'confirmed', 'delivering', 'awaiting_remittance', 'completed')),
+  status text not null default 'pending' check (status in ('pending', 'confirmed', 'delivering', 'completed')),
   items jsonb not null,
   total integer not null,
   customer_name text,
@@ -56,15 +56,14 @@ create table if not exists store_settings (
 insert into store_settings (id, min_order_amount) values ('default', 0)
 on conflict (id) do nothing;
 
--- 已有库升级：订单履约状态
--- 旧值 pending / completed 保持原义，无需改写数据。
--- pending 待电话确认 → confirmed 已确认待配送 → delivering 配送中
--- → awaiting_remittance 已收款待回款 → completed 已回店回款。
+-- 已有库升级：订单履约状态（四态）。对照用，不要执行。
+-- pending 待确认 → confirmed 已确认 → delivering 配送中 → completed 已完成。
+-- 已下线的 awaiting_remittance 见 mysql/migrations/20261020_drop_awaiting_remittance.sql。
 alter table orders add column if not exists status text not null default 'pending';
 alter table orders add column if not exists completed_at timestamptz;
 alter table orders drop constraint if exists orders_status_check;
 alter table orders add constraint orders_status_check
-  check (status in ('pending', 'confirmed', 'delivering', 'awaiting_remittance', 'completed'));
+  check (status in ('pending', 'confirmed', 'delivering', 'completed'));
 create index if not exists orders_status_idx on orders(status);
 
 -- 已有库升级：店员与能力开关。店主 is_owner = true，登录后拥有全部能力。
