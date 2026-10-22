@@ -10,6 +10,7 @@ import {
   readLocalOrders,
 } from "@/lib/local-data";
 import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
+import type { InAppHintSnapshot } from "@/lib/notification-hint";
 import { IN_APP_CHANNEL } from "@/types/notification";
 import type { OrderNotificationRecord, OrderNotificationView } from "@/types/notification";
 
@@ -28,6 +29,10 @@ interface NotificationRow extends RowDataPacket {
 
 interface CountRow extends RowDataPacket {
   total: number | string;
+}
+
+interface NewestNotificationRow extends RowDataPacket {
+  notification_id: string;
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -76,25 +81,57 @@ export async function insertInAppOrderNotifications(orderId: string, staffIds: s
 
 export async function countUnreadNotifications(staffId: string | null): Promise<number> {
   if (!staffId) return 0;
+  const hint = await getInAppNotificationHint(staffId);
+  return hint?.unreadCount ?? 0;
+}
+
+function newestLocalNotification(records: OrderNotificationRecord[]): OrderNotificationRecord | null {
+  return records.reduce<OrderNotificationRecord | null>((best, record) => {
+    if (!best || record.createdAt > best.createdAt) return record;
+    if (record.createdAt === best.createdAt && record.notificationId > best.notificationId) return record;
+    return best;
+  }, null);
+}
+
+/** 铃铛未读数，以及最新一条站内通知。失败时返回 null，调用方保持上一轮画面。 */
+export async function getInAppNotificationHint(staffId: string | null): Promise<InAppHintSnapshot | null> {
+  if (!staffId) return { unreadCount: 0, newestNotificationId: null };
 
   try {
     if (!isMysqlConfigured()) {
-      const records = await readLocalNotifications();
-      return records.filter(
-        (record) => record.recipientStaffId === staffId && record.channel === IN_APP_CHANNEL && !record.readAt,
-      ).length;
+      const records = (await readLocalNotifications()).filter(
+        (record) => record.recipientStaffId === staffId && record.channel === IN_APP_CHANNEL,
+      );
+      return {
+        unreadCount: records.filter((record) => !record.readAt).length,
+        newestNotificationId: newestLocalNotification(records)?.notificationId ?? null,
+      };
     }
 
-    const rows = await mysqlQuery<CountRow[]>(
-      `SELECT COUNT(*) AS total
-       FROM order_notifications
-       WHERE recipient_staff_id = ? AND channel = ? AND read_at IS NULL`,
-      [staffId, IN_APP_CHANNEL],
-    );
-    return Number(rows[0]?.total ?? 0);
+    const [countRows, newestRows] = await Promise.all([
+      mysqlQuery<CountRow[]>(
+        `SELECT COUNT(*) AS total
+         FROM order_notifications
+         WHERE recipient_staff_id = ? AND channel = ? AND read_at IS NULL`,
+        [staffId, IN_APP_CHANNEL],
+      ),
+      mysqlQuery<NewestNotificationRow[]>(
+        `SELECT notification_id
+         FROM order_notifications
+         WHERE recipient_staff_id = ? AND channel = ?
+         ORDER BY created_at DESC, notification_id DESC
+         LIMIT 1`,
+        [staffId, IN_APP_CHANNEL],
+      ),
+    ]);
+
+    return {
+      unreadCount: Number(countRows[0]?.total ?? 0),
+      newestNotificationId: newestRows[0]?.notification_id ?? null,
+    };
   } catch (err) {
-    console.warn("[order-notifications] unread count failed:", err);
-    return 0;
+    console.warn("[order-notifications] hint failed:", err);
+    return null;
   }
 }
 

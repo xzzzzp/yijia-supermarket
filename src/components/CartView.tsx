@@ -150,7 +150,7 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="space-y-4">
       <h1 className="font-display text-2xl font-semibold text-accent">{t("cartTitle")}</h1>
       {!ready ? (
         <div className="rounded-2xl border border-surface-2 bg-white p-10 text-center text-sm text-muted">...</div>
@@ -159,7 +159,8 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
           <p className="text-lg text-muted">{t("cartEmpty")}</p>
         </div>
       ) : (
-        <>
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="space-y-4">
           <label className="flex items-center gap-2 px-1 text-sm font-semibold text-ink">
             <input
               type="checkbox"
@@ -250,8 +251,9 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
               );
             })}
           </div>
+          </div>
 
-          <div className="rounded-2xl border border-surface-2 bg-white p-5">
+          <div className="rounded-2xl border border-surface-2 bg-white p-5 lg:sticky lg:top-20">
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold">{t("total")}</span>
               <span className="font-display text-xl font-bold text-brand">{formatPrice(total)}</span>
@@ -272,7 +274,7 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
               {t("goCheckout")}
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

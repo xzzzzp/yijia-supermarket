@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
-import { countUnreadNotifications } from "@/lib/notifications.server";
+import { getInAppNotificationHint } from "@/lib/notifications.server";
 import { adminRoleLabel, hasCapability } from "@/lib/staff-access";
 import { AdminNav } from "@/components/admin/AdminNav";
 
@@ -11,9 +11,10 @@ export default async function AdminDashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAdmin();
-  const unreadCount = hasCapability(user, "orderNotifications")
-    ? await countUnreadNotifications(user.staffId)
-    : 0;
+  const liveHint =
+    hasCapability(user, "orderNotifications") && user.staffId
+      ? await getInAppNotificationHint(user.staffId)
+      : null;
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-8">
@@ -22,7 +23,11 @@ export default async function AdminDashboardLayout({
           已登录：{user.email}（{adminRoleLabel(user)}）
         </p>
       </div>
-      <AdminNav user={user} unreadCount={unreadCount} />
+      <AdminNav
+        user={user}
+        unreadCount={liveHint?.unreadCount ?? 0}
+        newestNotificationId={liveHint?.newestNotificationId ?? null}
+      />
       {children}
     </div>
   );
