@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   ...(basePath ? { basePath, trailingSlash: true } : {}),
   allowedDevOrigins,
   serverExternalPackages: ["mysql2"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
+  },
 };
 
 export default nextConfig;

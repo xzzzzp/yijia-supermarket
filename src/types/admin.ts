@@ -63,6 +63,14 @@ export function validateProductInput(input: ProductInput): string | null {
   return null;
 }
 
+export interface ExcelImportRowResult {
+  rowNumber: number;
+  name: string;
+  spec: string;
+  status: "created" | "updated" | "failed";
+  message: string;
+}
+
 export interface BatchImportResult {
   filename: string;
   status: "matched" | "unmatched" | "error";

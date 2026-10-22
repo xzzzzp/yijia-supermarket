@@ -138,6 +138,27 @@ export async function deleteProductRecord(id: string): Promise<void> {
   }
 }
 
+export async function updateImportedProduct(
+  id: string,
+  fields: { price: number; category: string | null; inStock: boolean | null },
+): Promise<void> {
+  const sets = ["price = ?"];
+  const params: Array<string | number> = [fields.price];
+  if (fields.category) {
+    sets.push("category = ?");
+    params.push(fields.category);
+  }
+  if (fields.inStock != null) {
+    sets.push("in_stock = ?");
+    params.push(fields.inStock ? 1 : 0);
+  }
+  params.push(id);
+  const result = await mysqlExecute(`UPDATE products SET ${sets.join(", ")} WHERE id = ?`, params);
+  if (result.affectedRows === 0) {
+    throw new Error("未找到该商品");
+  }
+}
+
 export async function updateProductImage(id: string, image: string): Promise<void> {
   const result = await mysqlExecute("UPDATE products SET image = ? WHERE id = ?", [image, id]);
   if (result.affectedRows === 0) {
