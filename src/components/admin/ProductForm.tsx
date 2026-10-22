@@ -9,6 +9,7 @@ import {
   uploadProductImageAction,
 } from "@/app/admin/actions";
 import { PLACEHOLDER_IMAGE } from "@/lib/assets";
+import { PRODUCT_IMAGE_UPLOAD_HINT } from "@/lib/product-image-hint";
 import { ProductImage } from "@/components/ProductImage";
 
 interface ProductFormProps {
@@ -117,6 +118,9 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
           >
             {uploading ? "上传中…" : "上传图片"}
           </button>
+          <p className="mt-2 text-center text-xs leading-5 text-slate-500">
+            {PRODUCT_IMAGE_UPLOAD_HINT}
+          </p>
           {uploadMsg && (
             <p className="mt-2 text-center text-xs text-slate-500">{uploadMsg}</p>
           )}
