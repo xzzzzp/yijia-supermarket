@@ -14,6 +14,8 @@ export interface Product {
   price: number;
   inStock: boolean;
   isNew: boolean;
+  /** 新品推荐顺序。越小越靠前。未勾选新品推荐时不进入推荐池。 */
+  recommendSort: number;
   isPublished: boolean;
   createdAt: string;
   sortOrder: number;

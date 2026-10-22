@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Product } from "@/types/product";
-import { formatPrice } from "@/lib/products";
+import { formatPrice, HOME_NEW_PRODUCT_LIMIT } from "@/lib/products";
 import { getProductName } from "@/lib/i18n";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { ProductImage } from "@/components/ProductImage";
@@ -14,7 +14,8 @@ interface NewProductsCarouselProps {
 export function NewProductsCarousel({ products }: NewProductsCarouselProps) {
   const { locale, t } = useLanguage();
 
-  if (!products.length) return null;
+  const items = products.slice(0, HOME_NEW_PRODUCT_LIMIT);
+  if (!items.length) return null;
 
   return (
     <section className="bg-white px-5 py-8 sm:px-6">
@@ -28,12 +29,12 @@ export function NewProductsCarousel({ products }: NewProductsCarouselProps) {
             href="/products/new"
             className="shrink-0 text-sm font-semibold text-brand transition hover:text-brand-dark"
           >
-            {t("viewAll")} →
+            {t("viewAll")}
           </Link>
         </div>
 
         <div className="scroll-rail mt-5 flex gap-4 overflow-x-auto pb-2">
-          {products.map((product) => (
+          {items.map((product) => (
             <Link
               key={product.id}
               href={product.categoryRoute}

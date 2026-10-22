@@ -54,9 +54,11 @@ type TranslationKey =
   | "noProducts"
   | "sortBy"
   | "sortDefault"
+  | "sortRecommend"
   | "sortPriceAsc"
   | "sortPriceDesc"
   | "sortName"
+  | "loadMore"
   | "navHome"
   | "navCategories"
   | "navOrders"
@@ -134,9 +136,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     noProducts: "Товары не найдены",
     sortBy: "Сортировка",
     sortDefault: "По умолчанию",
+    sortRecommend: "Рекомендации",
     sortPriceAsc: "Цена ↑",
     sortPriceDesc: "Цена ↓",
     sortName: "По названию",
+    loadMore: "Показать ещё",
     navHome: "Главная",
     navCategories: "Категории",
     navOrders: "Заказы",
@@ -213,9 +217,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     noProducts: "Mahsulot topilmadi",
     sortBy: "Saralash",
     sortDefault: "Standart",
+    sortRecommend: "Tavsiya tartibi",
     sortPriceAsc: "Narx ↑",
     sortPriceDesc: "Narx ↓",
     sortName: "Nomi bo'yicha",
+    loadMore: "Yana ko‘rsatish",
     navHome: "Bosh sahifa",
     navCategories: "Toifalar",
     navOrders: "Buyurtmalar",
@@ -292,9 +298,11 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     noProducts: "未找到商品",
     sortBy: "排序",
     sortDefault: "默认",
+    sortRecommend: "推荐排序",
     sortPriceAsc: "价格 ↑",
     sortPriceDesc: "价格 ↓",
     sortName: "按名称",
+    loadMore: "加载更多",
     navHome: "首页",
     navCategories: "分类",
     navOrders: "订单",

@@ -30,13 +30,15 @@ CREATE TABLE IF NOT EXISTS products (
   price INT NOT NULL DEFAULT 0,
   in_stock TINYINT(1) NOT NULL DEFAULT 1,
   is_new TINYINT(1) NOT NULL DEFAULT 0,
+  recommend_sort INT NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 1,
   sort_order INT NOT NULL DEFAULT 0,
   category VARCHAR(64) NOT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   UNIQUE KEY products_source_key (source_key),
   KEY products_category_idx (category),
-  KEY products_published_idx (is_published)
+  KEY products_published_idx (is_published),
+  KEY products_recommend_idx (is_new, is_published, recommend_sort)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 商品分类。slug 对应 products.category，不建外键，删除/停用由应用拦截仍有商品的分类。

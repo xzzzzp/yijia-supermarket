@@ -31,6 +31,7 @@ const defaultValues = {
   category: "drinks",
   inStock: true,
   isNew: false,
+  recommendSort: 0,
   isPublished: true,
 };
 
@@ -176,13 +177,22 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
               type="number"
               defaultValue={String(values.sortOrder)}
             />
+            <Field
+              label="推荐排序（越小越靠前）"
+              name="recommendSort"
+              type="number"
+              defaultValue={String(values.recommendSort)}
+            />
           </div>
 
           <div className="flex flex-wrap gap-6">
             <Checkbox label="有货" name="inStock" defaultChecked={values.inStock} />
-            <Checkbox label="新品" name="isNew" defaultChecked={values.isNew} />
+            <Checkbox label="新品推荐" name="isNew" defaultChecked={values.isNew} />
             <Checkbox label="已上架" name="isPublished" defaultChecked={values.isPublished} />
           </div>
+          <p className="text-xs text-slate-500">
+            勾选「新品推荐」后，商品进入首页新品推荐和「新品推荐」页，顺序用推荐排序。取消勾选会从这两处移除。
+          </p>
         </div>
       </div>
 

@@ -1,6 +1,17 @@
 import type { Product, ProductCategory } from "@/types/product";
 import { getCategoryInfo } from "@/types/product";
 
+export {
+  HOME_NEW_PRODUCT_LIMIT,
+  NEW_PRODUCT_PAGE_SIZE,
+  compareRecommendSort,
+  filterNewProducts,
+  homeNewProducts,
+  sortProducts,
+  type ProductSortMode,
+  type SortOption,
+} from "@/lib/recommend-products";
+
 export const SEED_PRODUCTS: Product[] = [
   {
     id: "seed-001",
@@ -15,6 +26,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 12000,
     inStock: true,
     isNew: true,
+    recommendSort: 30,
     isPublished: true,
     createdAt: "2026-01-15",
     sortOrder: 0,
@@ -35,6 +47,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 15000,
     inStock: true,
     isNew: true,
+    recommendSort: 10,
     isPublished: true,
     createdAt: "2026-01-20",
     sortOrder: 1,
@@ -55,6 +68,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 18000,
     inStock: true,
     isNew: true,
+    recommendSort: 40,
     isPublished: true,
     createdAt: "2026-01-22",
     sortOrder: 2,
@@ -75,6 +89,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 22000,
     inStock: true,
     isNew: false,
+    recommendSort: 0,
     isPublished: true,
     createdAt: "2026-01-10",
     sortOrder: 3,
@@ -95,6 +110,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 35000,
     inStock: true,
     isNew: false,
+    recommendSort: 0,
     isPublished: true,
     createdAt: "2026-01-08",
     sortOrder: 4,
@@ -115,6 +131,7 @@ export const SEED_PRODUCTS: Product[] = [
     price: 85000,
     inStock: true,
     isNew: true,
+    recommendSort: 20,
     isPublished: true,
     createdAt: "2026-01-25",
     sortOrder: 5,
@@ -131,10 +148,6 @@ export function filterByCategory(
   return products.filter((p) => p.category === category && p.isPublished);
 }
 
-export function filterNewProducts(products: Product[]): Product[] {
-  return products.filter((p) => p.isNew && p.isPublished);
-}
-
 export function searchProducts(products: Product[], query: string): Product[] {
   const q = query.trim().toLowerCase();
   if (!q) return products.filter((p) => p.isPublished);
@@ -149,24 +162,13 @@ export function searchProducts(products: Product[], query: string): Product[] {
   );
 }
 
-export type SortOption = "default" | "price-asc" | "price-desc" | "name";
-
-export function sortProducts(products: Product[], sort: SortOption): Product[] {
-  const sorted = [...products];
-  switch (sort) {
-    case "price-asc":
-      return sorted.sort((a, b) => a.price - b.price);
-    case "price-desc":
-      return sorted.sort((a, b) => b.price - a.price);
-    case "name":
-      return sorted.sort((a, b) => a.nameRu.localeCompare(b.nameRu));
-    default:
-      return sorted.sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-}
-
 export function formatPrice(price: number): string {
   return `${price.toLocaleString("ru-RU")} UZS`;
+}
+
+function finiteRecommendSort(value: unknown): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 export function mapProductRow(
@@ -189,6 +191,7 @@ export function mapProductRow(
     price: row.price as number,
     inStock: row.in_stock as boolean,
     isNew: row.is_new as boolean,
+    recommendSort: finiteRecommendSort(row.recommend_sort),
     isPublished: row.is_published as boolean,
     createdAt: row.created_at as string,
     sortOrder: row.sort_order as number,
