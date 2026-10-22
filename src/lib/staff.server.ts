@@ -263,12 +263,8 @@ export async function loginStaff(
   return { ok: true, staffId: match.id, email: match.email.trim().toLowerCase() };
 }
 
-export const resolveStaffAccess = cache(async (staffId: string, email: string): Promise<AdminSession | null> => {
-  const directory = await loadStaffDirectory();
-  if (directory.unavailable) {
-    redirect("/admin/login?error=db");
-  }
-
+function matchStaffAccess(directory: StaffDirectory, staffId: string, email: string): AdminSession | null {
+  if (directory.unavailable) return null;
   const normalized = email.trim().toLowerCase();
   const match =
     directory.staff.find((member) => member.id === staffId) ??
@@ -277,7 +273,21 @@ export const resolveStaffAccess = cache(async (staffId: string, email: string): 
 
   if (!match) return null;
   return toAccess(match);
+}
+
+export const resolveStaffAccess = cache(async (staffId: string, email: string): Promise<AdminSession | null> => {
+  const directory = await loadStaffDirectory();
+  if (directory.unavailable) {
+    redirect("/admin/login?error=db");
+  }
+  return matchStaffAccess(directory, staffId, email);
 });
+
+/** 后台轮询用。库不可用或会话失效时返回 null，不把当前页面重定向到登录。 */
+export async function lookupStaffAccess(staffId: string, email: string): Promise<AdminSession | null> {
+  const directory = await loadStaffDirectory();
+  return matchStaffAccess(directory, staffId, email);
+}
 
 export async function listNotificationRecipients(): Promise<StaffRecord[]> {
   const directory = await loadStaffDirectory();

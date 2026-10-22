@@ -20,7 +20,7 @@ export default async function AdminNotificationsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">接单通知</h1>
         <p className="mt-1 text-sm text-slate-600">
-          新订单会通知全部店主，以及打开了接单通知的店员。目前只有站内通知。
+          新订单会通知全部店主，以及打开了接单通知的店员。本页保持打开时会自动刷新；关掉再打开仍看得到以往的站内通知。
         </p>
       </div>
       {warning && (

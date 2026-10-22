@@ -159,7 +159,7 @@ export function CheckoutForm() {
 
   if (!ready) {
     return (
-      <main className="mx-auto max-w-3xl px-5 py-8">
+      <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-6">
         <h1 className="font-display text-2xl font-semibold text-accent">{t("checkoutTitle")}</h1>
         <p className="mt-6 text-sm text-muted">...</p>
       </main>
@@ -168,7 +168,7 @@ export function CheckoutForm() {
 
   if (!enriched.length) {
     return (
-      <main className="mx-auto max-w-3xl space-y-4 px-5 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-4 px-5 py-8 sm:px-6">
         <h1 className="font-display text-2xl font-semibold text-accent">{t("checkoutTitle")}</h1>
         <div className="rounded-2xl border border-surface-2 bg-white p-10 text-center">
           <p className="text-lg text-muted">{t("cartEmpty")}</p>
@@ -181,10 +181,10 @@ export function CheckoutForm() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 px-5 py-8">
+    <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-6">
       <h1 className="font-display text-2xl font-semibold text-accent">{t("checkoutTitle")}</h1>
-
-      <section className="overflow-hidden rounded-2xl border border-surface-2 bg-white">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-2xl border border-surface-2 bg-white">
         <h2 className="border-b border-surface-2 px-4 py-3 text-sm font-semibold text-ink">{t("purchaseList")}</h2>
         <ul>
           {enriched.map((item) => {
@@ -275,7 +275,8 @@ export function CheckoutForm() {
         >
           {loading ? "..." : t("submitOrder")}
         </button>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

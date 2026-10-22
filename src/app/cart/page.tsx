@@ -11,8 +11,10 @@ export default async function CartPage() {
     <ProductCatalogProvider products={products}>
       <LanguageProvider>
         <StorefrontShell>
-          <main className="min-h-screen bg-surface px-5 py-8">
-            <CartView />
+          <main className="min-h-screen bg-surface">
+            <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-6">
+              <CartView />
+            </div>
           </main>
         </StorefrontShell>
       </LanguageProvider>
