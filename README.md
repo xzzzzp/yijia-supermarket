@@ -166,7 +166,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 ### 商品 CRUD
 
 - 支持中/俄/乌三语名称与规格
-- 单张图片上传到 `public/products/`
+- 单张图片上传到 `data/uploads/products/<分类>/`。数据库仍保存 `/products/<分类>/<文件名>`，前台会加上 basePath（如 `/yijia`）
 - 上架 / 下架、新品、库存、排序
 
 ### 批量导入图片
@@ -181,5 +181,5 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 - 图片 `kangshifu-braised-cup.png`
 - 匹配 `source_key` 含 `kangshifu-braised-cup` 的商品
 
-商品图片保存在服务器的 `public/products/`。
+商品图片保存在服务器的 `data/uploads/products/<分类>/`（`data/` 不进 git，部署 rsync 会排除）。已有文件如果还在 `public/products/<分类>/`，前台同样能读到；`deploy/deploy.sh` 会把它们复制进 `data/uploads`，并且不会用 `--delete` 清掉这些分类目录。占位图 `public/products/placeholder.png` 仍是构建时就存在的静态文件。不需要为上传图单独配 nginx alias，保持 `/yijia/` 反向代理到 Next 即可。
 

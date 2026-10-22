@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 本地一键部署到阿里云（与 noodle-website 隔离：8080 -> 3001）
 # 远端 npm run build 前必须已有应用目录 .env.local（模板 deploy/env.production.example）。
-# rsync 排除 .env.local，且没有 --delete-excluded，--delete 不会删掉服务器上的该文件。
+# rsync 排除 .env.local、data/，以及 public/products/<分类>/ 里已上传的旧图。
+# 没有 --delete-excluded，--delete 不会删掉这些被排除的文件。
 # /admin/login 在 build 时预渲染；缺登录变量会把 authMode=none 写进静态页。只 pm2 restart 不够。
 set -euo pipefail
 
@@ -16,6 +17,7 @@ rsync -avz --delete \
   --exclude .git \
   --exclude data \
   --exclude .env.local \
+  --exclude '/public/products/*/' \
   -e "ssh -o StrictHostKeyChecking=no" \
   "$LOCAL_DIR/" "$SERVER:$REMOTE_DIR/"
 
@@ -34,6 +36,20 @@ fi
 
 # 缺 BASE_PATH、MySQL/ADMIN_DEV 或会话密钥时直接退出，不执行 npm run build。
 bash deploy/check-env.sh
+
+# 旧上传在 public/products/<分类>/。复制到 data/uploads（已有文件不覆盖）。
+# 应用从 data/uploads 和 public/products 两处读取，不依赖 nginx 静态目录。
+mkdir -p data/uploads/products
+if [ -d public/products ]; then
+  while IFS= read -r -d '' src; do
+    rel="${src#public/products/}"
+    dest="data/uploads/products/$rel"
+    if [ ! -e "$dest" ]; then
+      mkdir -p "$(dirname "$dest")"
+      cp -a "$src" "$dest"
+    fi
+  done < <(find public/products -type f -print0)
+fi
 
 npm ci
 npm run build
