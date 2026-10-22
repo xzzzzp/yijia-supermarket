@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { CategoryInfo, Product } from "@/types/product";
 import { formatPrice } from "@/lib/products";
+import { recommendSortError } from "@/types/admin";
 import { ProductImage } from "@/components/ProductImage";
-import { deleteProduct } from "@/app/admin/actions";
+import { deleteProduct, updateProductRecommendation } from "@/app/admin/actions";
 
 interface ProductTableProps {
   products: Product[];
@@ -19,6 +20,7 @@ export function ProductTable({ products, categories }: ProductTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [category, setCategory] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [recommendOnly, setRecommendOnly] = useState(false);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -31,6 +33,7 @@ export function ProductTable({ products, categories }: ProductTableProps) {
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase();
     return products.filter((p) => {
+      if (recommendOnly && !p.isNew) return false;
       if (category && p.category !== category) return false;
       if (!q) return true;
       return [p.name, p.nameRu, p.nameUz, p.sourceKey, p.category]
@@ -38,7 +41,7 @@ export function ProductTable({ products, categories }: ProductTableProps) {
         .toLowerCase()
         .includes(q);
     });
-  }, [products, category, keyword]);
+  }, [products, category, keyword, recommendOnly]);
 
   const handleDelete = (id: string, name: string) => {
     if (!confirm(`确定删除「${name}」吗？`)) return;
@@ -88,12 +91,22 @@ export function ProductTable({ products, categories }: ProductTableProps) {
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-red-500"
           />
         </div>
-        {(category || keyword) && (
+        <label className="flex items-center gap-2 pb-2 text-sm font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={recommendOnly}
+            onChange={(e) => setRecommendOnly(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-red-600"
+          />
+          仅看新品推荐
+        </label>
+        {(category || keyword || recommendOnly) && (
           <button
             type="button"
             onClick={() => {
               setCategory("");
               setKeyword("");
+              setRecommendOnly(false);
             }}
             className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
           >
@@ -108,7 +121,7 @@ export function ProductTable({ products, categories }: ProductTableProps) {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left text-sm">
+          <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
                 <th className="px-4 py-3 font-semibold">图片</th>
@@ -117,6 +130,8 @@ export function ProductTable({ products, categories }: ProductTableProps) {
                 <th className="px-4 py-3 font-semibold">价格</th>
                 <th className="px-4 py-3 font-semibold">库存</th>
                 <th className="px-4 py-3 font-semibold">状态</th>
+                <th className="px-4 py-3 font-semibold">是否新品推荐</th>
+                <th className="px-4 py-3 font-semibold">推荐排序</th>
                 <th className="px-4 py-3 font-semibold">操作</th>
               </tr>
             </thead>
@@ -156,13 +171,9 @@ export function ProductTable({ products, categories }: ProductTableProps) {
                         >
                           {p.isPublished ? "已上架" : "未上架"}
                         </span>
-                        {p.isNew && (
-                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
-                            新品
-                          </span>
-                        )}
                       </div>
                     </td>
+                    <RecommendationEditor key={`${p.id}:${p.isNew}:${p.recommendSort}`} product={p} />
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <Link
@@ -194,5 +205,92 @@ export function ProductTable({ products, categories }: ProductTableProps) {
         )}
       </div>
     </div>
+  );
+}
+
+function RecommendationEditor({ product }: { product: Product }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [isNew, setIsNew] = useState(product.isNew);
+  const [sort, setSort] = useState(String(product.recommendSort));
+  const [error, setError] = useState("");
+
+  const persist = (nextIsNew: boolean, recommendSort: number) => {
+    if (nextIsNew === product.isNew && recommendSort === product.recommendSort) return;
+    setError("");
+    startTransition(async () => {
+      const result = await updateProductRecommendation(product.id, nextIsNew, recommendSort);
+      if (!result.ok) {
+        setError(result.message);
+        setIsNew(product.isNew);
+        setSort(String(product.recommendSort));
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const readSort = (raw: string) => {
+    if (raw.trim() === "") return { ok: false as const, message: "请填写推荐排序" };
+    const value = Number(raw.trim());
+    const message = recommendSortError(value);
+    if (message) return { ok: false as const, message };
+    return { ok: true as const, value };
+  };
+
+  return (
+    <>
+      <td className="px-4 py-3">
+        <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+          <input
+            type="checkbox"
+            checked={isNew}
+            disabled={pending}
+            aria-label={`是否新品推荐：${product.name}`}
+            onChange={(event) => {
+              const parsed = readSort(sort);
+              if (!parsed.ok) {
+                setError(parsed.message);
+                return;
+              }
+              setIsNew(event.target.checked);
+              persist(event.target.checked, parsed.value);
+            }}
+            className="h-4 w-4 rounded border-slate-300 text-red-600 disabled:opacity-50"
+          />
+          {isNew ? (
+            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">新品推荐</span>
+          ) : (
+            <span className="text-slate-400">未推荐</span>
+          )}
+        </label>
+      </td>
+      <td className="px-4 py-3">
+        <input
+          type="number"
+          inputMode="numeric"
+          aria-label={`推荐排序：${product.name}`}
+          value={sort}
+          disabled={pending}
+          onChange={(event) => setSort(event.target.value)}
+          onBlur={() => {
+            const parsed = readSort(sort);
+            if (!parsed.ok) {
+              setError(parsed.message);
+              return;
+            }
+            persist(isNew, parsed.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+          className="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-red-500 disabled:opacity-50"
+        />
+        {error && <p className="mt-1 max-w-56 text-xs text-red-600">{error}</p>}
+      </td>
+    </>
   );
 }

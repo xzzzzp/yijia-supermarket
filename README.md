@@ -174,13 +174,13 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql`、`mysql/migrations/20261018_orders_request_token_unique.sql` 和 `mysql/migrations/20261020_drop_awaiting_remittance.sql`（都可重复执行），补上分类、通知、操作日志、`orders.request_token` 唯一索引，以及四态订单状态。`20261020` 必须在部署去掉「已收款待回款」的应用之前执行：它把 `awaiting_remittance` 改成 `delivering`（并清空这些行的 `completed_at`），收紧状态约束，且不改写 `audit_logs`。需要 MySQL 8.0.19+（`DROP CHECK`）。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql`、`mysql/migrations/20261018_orders_request_token_unique.sql`、`mysql/migrations/20261020_drop_awaiting_remittance.sql` 和 `mysql/migrations/20261022_product_recommend_sort.sql`（都可重复执行），补上分类、通知、操作日志、`orders.request_token` 唯一索引、四态订单状态，以及新品推荐排序 `products.recommend_sort`。`20261022` 只增加列和索引，已有新品的推荐排序默认为 0。未执行时，商品写入会提示先跑这条迁移。`20261020` 必须在部署去掉「已收款待回款」的应用之前执行：它把 `awaiting_remittance` 改成 `delivering`（并清空这些行的 `completed_at`），收紧状态约束，且不改写 `audit_logs`。需要 MySQL 8.0.19+（`DROP CHECK`）。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
 
 ### 商品 CRUD
 
 - 支持中/俄/乌三语名称与规格
 - 单张图片上传到 `data/uploads/products/<分类>/`。数据库仍保存 `/products/<分类>/<文件名>`，前台会加上 basePath（如 `/yijia`）
-- 上架 / 下架、新品、库存、排序
+- 上架 / 下架、新品推荐（`is_new`）、推荐排序（`recommend_sort`，越小越靠前）、库存、分类内排序。商品列表可直接改是否新品推荐和推荐排序，不必进入编辑页。只有「商品上架」权限能改。首页新品推荐最多 8 个，`/products/new` 按推荐排序展示全部，可按价格升降序，首屏 24 个后加载更多。
 
 ### Excel 导入与按名称+规格配图
 

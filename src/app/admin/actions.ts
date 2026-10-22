@@ -19,6 +19,7 @@ import {
   insertProduct,
   updateImportedProduct,
   updateProductImage,
+  updateProductRecommendationRecord,
   updateProductRecord,
 } from "@/lib/products.server";
 import { loginStaff } from "@/lib/staff.server";
@@ -30,7 +31,7 @@ import type { AdminSession } from "@/types/staff";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
 import { categoryAssignmentMessage } from "@/lib/categories";
 import { getCategoryBySlug, listCategories } from "@/lib/categories.server";
-import { parseProductForm, validateProductInput } from "@/types/admin";
+import { parseProductForm, recommendSortError, validateProductInput } from "@/types/admin";
 import type { BatchImportResult, ExcelImportRowResult } from "@/types/admin";
 import type { AuditAction } from "@/types/audit";
 
@@ -48,6 +49,13 @@ async function ensureProductWriter(): Promise<
     };
   }
   return { ok: true, user };
+}
+
+function revalidateProductPages(category?: string) {
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/products/new");
+  if (category) revalidatePath(`/products/${category}`);
 }
 
 function writeAudit(
@@ -149,8 +157,7 @@ export async function createProduct(formData: FormData) {
     summary: `新增商品「${input.name}」`,
   });
 
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidateProductPages(input.category);
   redirect(`/admin/products/${id}/edit?saved=1`);
 }
 
@@ -187,10 +194,37 @@ export async function updateProduct(id: string, formData: FormData) {
     summary: `更新商品「${input.name}」`,
   });
 
-  revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath(`/products/${input.category}`);
+  revalidateProductPages(input.category);
   return { ok: true as const, message: "保存成功" };
+}
+
+export async function updateProductRecommendation(id: string, isNew: boolean, recommendSort: number) {
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return gate;
+  if (typeof isNew !== "boolean") {
+    return { ok: false as const, message: "新品推荐参数无效" };
+  }
+  const sortError = recommendSortError(recommendSort);
+  if (sortError) return { ok: false as const, message: sortError };
+
+  const existing = await fetchProductById(id);
+  if (!existing) return { ok: false as const, message: "未找到该商品" };
+
+  try {
+    await updateProductRecommendationRecord(id, { isNew, recommendSort });
+  } catch (err) {
+    return { ok: false as const, message: err instanceof Error ? err.message : "保存失败" };
+  }
+
+  await writeAudit(gate.user, {
+    action: "product.update",
+    targetType: "product",
+    targetId: id,
+    summary: `更新新品推荐「${existing.name}」：${isNew ? "推荐" : "取消推荐"}，排序 ${recommendSort}`,
+  });
+
+  revalidateProductPages(existing.category);
+  return { ok: true as const, message: "已更新新品推荐" };
 }
 
 export async function deleteProduct(id: string) {
@@ -212,8 +246,7 @@ export async function deleteProduct(id: string) {
     summary: existing ? `删除商品「${existing.name}」` : `删除商品 ${id}`,
   });
 
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidateProductPages(existing?.category);
   return { ok: true as const, message: "已删除" };
 }
 
@@ -304,8 +337,7 @@ export async function batchImportImages(formData: FormData) {
     }
   }
 
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidateProductPages();
 
   const matched = results.filter((item) => item.status === "matched").length;
   const unmatched = results.filter((item) => item.status === "unmatched").length;
@@ -389,6 +421,7 @@ export async function importProductsFromExcel(formData: FormData) {
           price: plan.price,
           inStock: plan.inStock,
           isNew: false,
+          recommendSort: 0,
           isPublished: true,
           sortOrder: 0,
           category: plan.category,
@@ -451,8 +484,7 @@ export async function importProductsFromExcel(formData: FormData) {
     targetId: null,
     summary: `Excel 导入商品：新建 ${created}，更新 ${updated}，失败 ${failed}`,
   });
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidateProductPages();
 
   return {
     ok: true as const,
@@ -521,8 +553,7 @@ export async function importImagesByNameSpec(formData: FormData) {
     }
   }
 
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidateProductPages();
 
   const matched = results.filter((item) => item.status === "matched").length;
   const unmatched = results.filter((item) => item.status === "unmatched").length;

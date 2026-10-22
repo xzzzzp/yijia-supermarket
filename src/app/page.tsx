@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { categoriesForHome } from "@/lib/categories";
 import { listCategories } from "@/lib/categories.server";
 import { fetchProducts } from "@/lib/products.server";
-import { filterNewProducts } from "@/lib/products";
+import { homeNewProducts } from "@/lib/products";
 import { STORE_CONFIG } from "@/lib/config";
 import { ProductCatalogProvider } from "@/providers/ProductCatalogProvider";
 import { LanguageProvider } from "@/providers/LanguageProvider";
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const [products, directory] = await Promise.all([fetchProducts(), listCategories()]);
-  const newProducts = filterNewProducts(products);
+  const newProducts = homeNewProducts(products);
 
   return (
     <ProductCatalogProvider products={products}>

@@ -9,6 +9,20 @@ import type { ProductInput } from "@/types/admin";
 import { productToRow } from "@/types/admin";
 import type { Product } from "@/types/product";
 
+const RECOMMEND_SORT_MIGRATION =
+  "商品表还没有推荐排序字段。请执行 mysql/migrations/20261022_product_recommend_sort.sql，或重新执行 mysql/schema.sql。";
+
+function rethrowProductWrite(err: unknown): never {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = String((err as { code?: string }).code);
+    const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+    if (code === "ER_BAD_FIELD_ERROR" && message.includes("recommend_sort")) {
+      throw new Error(RECOMMEND_SORT_MIGRATION);
+    }
+  }
+  throw err;
+}
+
 interface ProductRow extends RowDataPacket {
   id: string;
   source_key: string;
@@ -22,6 +36,7 @@ interface ProductRow extends RowDataPacket {
   price: number;
   in_stock: number;
   is_new: number;
+  recommend_sort?: number;
   is_published: number;
   sort_order: number;
   category: string;
@@ -100,6 +115,7 @@ function bindProduct(input: ProductInput) {
     row.price,
     row.in_stock ? 1 : 0,
     row.is_new ? 1 : 0,
+    row.recommend_sort,
     row.is_published ? 1 : 0,
     row.sort_order,
     row.category,
@@ -108,26 +124,55 @@ function bindProduct(input: ProductInput) {
 
 export async function insertProduct(input: ProductInput): Promise<string> {
   const id = randomUUID();
-  await mysqlExecute(
-    `INSERT INTO products (
-       id, source_key, name, name_ru, name_uz, spec, spec_ru, spec_uz, image,
-       price, in_stock, is_new, is_published, sort_order, category
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, ...bindProduct(input)],
-  );
+  try {
+    await mysqlExecute(
+      `INSERT INTO products (
+         id, source_key, name, name_ru, name_uz, spec, spec_ru, spec_uz, image,
+         price, in_stock, is_new, recommend_sort, is_published, sort_order, category
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, ...bindProduct(input)],
+    );
+  } catch (err) {
+    rethrowProductWrite(err);
+  }
   return id;
 }
 
 export async function updateProductRecord(id: string, input: ProductInput): Promise<void> {
-  const result: ResultSetHeader = await mysqlExecute(
-    `UPDATE products SET
-       source_key = ?, name = ?, name_ru = ?, name_uz = ?, spec = ?, spec_ru = ?, spec_uz = ?,
-       image = ?, price = ?, in_stock = ?, is_new = ?, is_published = ?, sort_order = ?, category = ?
-     WHERE id = ?`,
-    [...bindProduct(input), id],
-  );
+  let result: ResultSetHeader;
+  try {
+    result = await mysqlExecute(
+      `UPDATE products SET
+         source_key = ?, name = ?, name_ru = ?, name_uz = ?, spec = ?, spec_ru = ?, spec_uz = ?,
+         image = ?, price = ?, in_stock = ?, is_new = ?, recommend_sort = ?, is_published = ?,
+         sort_order = ?, category = ?
+       WHERE id = ?`,
+      [...bindProduct(input), id],
+    );
+  } catch (err) {
+    rethrowProductWrite(err);
+  }
   if (result.affectedRows === 0) {
     throw new Error("未找到该商品");
+  }
+}
+
+export async function updateProductRecommendationRecord(
+  id: string,
+  fields: { isNew: boolean; recommendSort: number },
+): Promise<void> {
+  let result: ResultSetHeader;
+  try {
+    result = await mysqlExecute(
+      "UPDATE products SET is_new = ?, recommend_sort = ? WHERE id = ?",
+      [fields.isNew ? 1 : 0, fields.recommendSort, id],
+    );
+  } catch (err) {
+    rethrowProductWrite(err);
+  }
+  if (result.affectedRows === 0) {
+    const rows = await mysqlQuery<ProductRow[]>("SELECT id FROM products WHERE id = ? LIMIT 1", [id]);
+    if (!rows.length) throw new Error("未找到该商品");
   }
 }
 

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCategoryBySlug } from "@/lib/categories.server";
 import { fetchProducts } from "@/lib/products.server";
-import { filterByCategory, filterNewProducts } from "@/lib/products";
+import { filterByCategory, filterNewProducts, NEW_PRODUCT_PAGE_SIZE } from "@/lib/products";
 import { ProductCatalogProvider } from "@/providers/ProductCatalogProvider";
 import { LanguageProvider } from "@/providers/LanguageProvider";
 import { StorefrontShell } from "@/components/StorefrontShell";
@@ -21,7 +21,11 @@ export default async function CategoryPage({
         <LanguageProvider>
           <StorefrontShell>
             <main className="min-h-screen bg-surface">
-              <ProductList products={filterNewProducts(allProducts)} />
+              <ProductList
+              products={filterNewProducts(allProducts)}
+              sortMode="recommend"
+              pageSize={NEW_PRODUCT_PAGE_SIZE}
+            />
             </main>
           </StorefrontShell>
         </LanguageProvider>
