@@ -37,7 +37,7 @@ export function hasCapability(
   return session.isOwner || session.capabilities[capability];
 }
 
-/** 配货、看统计、接单通知均可打开订单列表；无这些能力则不展示订单。 */
+/** 配货、看统计、接单通知均可打开订单列表。营收本身在「数据统计」，只认 viewStats。 */
 export function canViewOrders(session: Pick<AdminSession, "isOwner" | "capabilities">): boolean {
   return (
     hasCapability(session, "fulfillment") ||

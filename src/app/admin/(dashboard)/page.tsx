@@ -11,6 +11,11 @@ export default async function AdminPage() {
   const user = await requireAdmin();
 
   if (!hasCapability(user, "manageProducts")) {
+    const statsOnly =
+      hasCapability(user, "viewStats") &&
+      !hasCapability(user, "fulfillment") &&
+      !hasCapability(user, "orderNotifications");
+    if (statsOnly) redirect("/admin/stats");
     if (canViewOrders(user)) redirect("/admin/orders");
     if (user.isOwner) redirect("/admin/staff");
     return (
