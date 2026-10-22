@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { categoriesForProductForm } from "@/lib/categories";
 import type { CategoryInfo } from "@/types/product";
 import { batchImportImages } from "@/app/admin/actions";
+import { PRODUCT_IMAGE_UPLOAD_HINT } from "@/lib/product-image-hint";
 import type { BatchImportResult } from "@/types/admin";
 
 export function ImageBatchImport({ categories }: { categories: CategoryInfo[] }) {
@@ -95,6 +96,9 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
             拖拽图片到此处，或点击选择文件
           </p>
           <p className="mt-1 text-xs text-slate-500">支持 PNG、JPG、WEBP，可多选</p>
+          <p className="mt-1 max-w-md text-center text-xs leading-5 text-slate-500">
+            {PRODUCT_IMAGE_UPLOAD_HINT}
+          </p>
           <input
             ref={fileRef}
             type="file"

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { importImagesByNameSpec, importProductsFromExcel } from "@/app/admin/actions";
+import { PRODUCT_IMAGE_UPLOAD_HINT } from "@/lib/product-image-hint";
 import type { BatchImportResult, ExcelImportRowResult } from "@/types/admin";
 
 function downloadTemplate() {
@@ -99,6 +100,7 @@ export function ExcelImportPanel() {
           >
             {imagePending ? "匹配中…" : "导入主图"}
           </button>
+          <p className="basis-full text-xs text-slate-500">{PRODUCT_IMAGE_UPLOAD_HINT}</p>
         </form>
         {imageMessage && (
           <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">{imageMessage}</p>
