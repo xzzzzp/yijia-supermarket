@@ -1,5 +1,6 @@
 import type { CreateOrderRequest, OrderItem } from "@/types/order";
 import type { Product } from "@/types/product";
+import { validateCustomerContact } from "@/lib/order-contact";
 import { getProductName, getProductSpec } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 
@@ -91,5 +92,5 @@ export function validateOrderRequest(body: Partial<CreateOrderRequest>): string 
   if (!body.channel || !["wechat", "telegram"].includes(body.channel)) {
     return "下单渠道无效。";
   }
-  return null;
+  return validateCustomerContact(body);
 }

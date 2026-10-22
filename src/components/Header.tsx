@@ -1,25 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getCartCount } from "@/lib/cart";
+import { useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { getCartServerSnapshot, getCartSnapshot, subscribeCart } from "@/lib/cart";
+import { activeStorefrontTab, type StorefrontTab } from "@/lib/storefront-nav";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-export function Header() {
-  const { t } = useLanguage();
-  const [count, setCount] = useState(0);
+const LINKS: { id: StorefrontTab; href: string; labelKey: "navHome" | "navCategories" | "cart" | "navOrders" }[] = [
+  { id: "home", href: "/", labelKey: "navHome" },
+  { id: "categories", href: "/categories", labelKey: "navCategories" },
+  { id: "cart", href: "/cart", labelKey: "cart" },
+  { id: "orders", href: "/orders", labelKey: "navOrders" },
+];
 
-  useEffect(() => {
-    const update = () => setCount(getCartCount());
-    update();
-    window.addEventListener("cart-updated", update);
-    window.addEventListener("storage", update);
-    return () => {
-      window.removeEventListener("cart-updated", update);
-      window.removeEventListener("storage", update);
-    };
-  }, []);
+export function Header() {
+  const pathname = usePathname() || "/";
+  const { t } = useLanguage();
+  const active = activeStorefrontTab(pathname);
+  const items = useSyncExternalStore(subscribeCart, getCartSnapshot, getCartServerSnapshot);
+  const count = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <header className="sticky top-0 z-50 border-b border-surface-2 bg-surface/90 backdrop-blur-md">
@@ -30,21 +31,34 @@ export function Header() {
         >
           {t("siteName")}
         </Link>
+        <nav aria-label={t("navHome")} className="hidden items-center gap-1 md:flex">
+          {LINKS.map((link) => {
+            const selected = active === link.id;
+            return (
+              <Link
+                key={link.id}
+                href={link.href}
+                aria-current={selected ? "page" : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                  selected ? "bg-accent text-white" : "text-ink hover:bg-white"
+                }`}
+              >
+                {t(link.labelKey)}
+                {link.id === "cart" && (
+                  <span
+                    className={`rounded-full px-1.5 text-xs ${
+                      selected ? "bg-white/20" : "bg-accent text-white"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
         <div className="flex shrink-0 items-center gap-2">
           <LanguageSwitcher />
-          <Link
-            href="/cart"
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-semibold text-white transition hover:bg-accent-dark"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 6h15l-1.5 9h-12z" />
-              <circle cx="9" cy="20" r="1" />
-              <circle cx="18" cy="20" r="1" />
-              <path d="M6 6 5 3H2" />
-            </svg>
-            <span className="hidden sm:inline">{t("cart")}</span>
-            <span className="rounded-full bg-white/20 px-1.5 text-xs">{count}</span>
-          </Link>
         </div>
       </div>
     </header>

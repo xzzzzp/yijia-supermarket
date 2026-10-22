@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   addToCart,
-  getProductQuantity,
+  getCartServerSnapshot,
+  getCartSnapshot,
   removeFromCart,
+  subscribeCart,
   updateQuantity,
 } from "@/lib/cart";
 import { useLanguage } from "@/providers/LanguageProvider";
@@ -21,21 +23,8 @@ export function AddToCartControl({
   compact = false,
 }: AddToCartControlProps) {
   const { t } = useLanguage();
-  const [quantity, setQuantity] = useState(0);
-
-  const refresh = useCallback(() => {
-    setQuantity(getProductQuantity(productId));
-  }, [productId]);
-
-  useEffect(() => {
-    refresh();
-    window.addEventListener("cart-updated", refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener("cart-updated", refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, [refresh]);
+  const items = useSyncExternalStore(subscribeCart, getCartSnapshot, getCartServerSnapshot);
+  const quantity = items.find((item) => item.productId === productId)?.quantity ?? 0;
 
   if (!inStock) {
     return (

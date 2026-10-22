@@ -42,14 +42,45 @@ function removeStorage(key: string): void {
   }
 }
 
-export function getCart(): CartItem[] {
-  if (typeof window === "undefined") return [];
+const EMPTY_CART: CartItem[] = [];
+let cartSnapshotRaw: string | null = null;
+let cartSnapshot: CartItem[] = EMPTY_CART;
+
+function parseCart(raw: string | null): CartItem[] {
+  if (!raw) return [];
   try {
-    const raw = readStorage(CART_KEY);
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
+    const parsed = JSON.parse(raw) as CartItem[];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
+}
+
+export function getCart(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  return parseCart(readStorage(CART_KEY));
+}
+
+export function subscribeCart(onChange: () => void): () => void {
+  window.addEventListener("cart-updated", onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener("cart-updated", onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/** 返回值在购物车文本没变时保持同一引用，供 useSyncExternalStore 使用。 */
+export function getCartSnapshot(): CartItem[] {
+  const raw = readStorage(CART_KEY) ?? "";
+  if (raw === cartSnapshotRaw) return cartSnapshot;
+  cartSnapshotRaw = raw;
+  cartSnapshot = parseCart(raw);
+  return cartSnapshot;
+}
+
+export function getCartServerSnapshot(): CartItem[] {
+  return EMPTY_CART;
 }
 
 export function saveCart(items: CartItem[]): void {
@@ -85,17 +116,83 @@ export function removeFromCart(productId: string): CartItem[] {
   return cart;
 }
 
+export function removeFromCartMany(productIds: string[]): CartItem[] {
+  const drop = new Set(productIds);
+  const cart = getCart().filter((item) => !drop.has(item.productId));
+  saveCart(cart);
+  return cart;
+}
+
+const CHECKOUT_IDS_KEY = "yijia-checkout-ids";
+
+export function saveCheckoutSelection(productIds: string[]): void {
+  writeStorage(CHECKOUT_IDS_KEY, JSON.stringify(productIds));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("yijia-checkout"));
+  }
+}
+
+/** 没有写入过选择时返回 null，结算页据此结算购物车里的全部商品。 */
+export function readCheckoutSelection(): string[] | null {
+  if (typeof window === "undefined") return null;
+  const raw = readStorage(CHECKOUT_IDS_KEY);
+  if (raw == null) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter((id): id is string => typeof id === "string" && id.length > 0);
+  } catch {
+    return null;
+  }
+}
+
+export function clearCheckoutSelection(): void {
+  removeStorage(CHECKOUT_IDS_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("yijia-checkout"));
+  }
+}
+
+let selectionSnapshotKey = "";
+let selectionSnapshot: string[] | null = null;
+
+export function subscribeCheckoutSelection(onChange: () => void): () => void {
+  window.addEventListener("yijia-checkout", onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener("yijia-checkout", onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/** null 表示购物车页还没有写入选择，结算时应包含全部商品。 */
+export function getCheckoutSelectionSnapshot(): string[] | null {
+  const raw = readStorage(CHECKOUT_IDS_KEY);
+  const key = raw ?? "\0";
+  if (key === selectionSnapshotKey) return selectionSnapshot;
+  selectionSnapshotKey = key;
+  if (raw == null) {
+    selectionSnapshot = null;
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    selectionSnapshot = Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : null;
+  } catch {
+    selectionSnapshot = null;
+  }
+  return selectionSnapshot;
+}
+
+export function getCheckoutSelectionServerSnapshot(): string[] | null {
+  return null;
+}
+
 export function clearCart(): void {
   removeStorage(CART_KEY);
   window.dispatchEvent(new CustomEvent("cart-updated"));
-}
-
-export function getCartCount(): number {
-  return getCart().reduce((sum, item) => sum + item.quantity, 0);
-}
-
-export function getProductQuantity(productId: string): number {
-  return getCart().find((i) => i.productId === productId)?.quantity ?? 0;
 }
 
 export function getOrCreateOrderToken(): string {
