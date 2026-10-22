@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -7,12 +8,16 @@ import { recordAudit } from "@/lib/audit.server";
 import { hasCapability } from "@/lib/staff-access";
 import { clearAdminSession, setAdminSession } from "@/lib/dev-auth";
 import { isMysqlConfigured } from "@/lib/mysql";
+import { PLACEHOLDER_IMAGE } from "@/lib/assets";
+import { fileImageKey, nameSpecImageKey, parseProductSheet, planProductImport } from "@/lib/excel-products";
+import { readSpreadsheet } from "@/lib/excel-workbook";
 import { matchProductByFilename, uploadProductImage } from "@/lib/storage";
 import {
   deleteProductRecord,
   fetchAllProducts,
   fetchProductById,
   insertProduct,
+  updateImportedProduct,
   updateProductImage,
   updateProductRecord,
 } from "@/lib/products.server";
@@ -24,9 +29,9 @@ import type { OrderStatus } from "@/types/order";
 import type { AdminSession } from "@/types/staff";
 import { parseStoreSettingsForm } from "@/lib/store-settings-defaults";
 import { categoryAssignmentMessage } from "@/lib/categories";
-import { getCategoryBySlug } from "@/lib/categories.server";
+import { getCategoryBySlug, listCategories } from "@/lib/categories.server";
 import { parseProductForm, validateProductInput } from "@/types/admin";
-import type { BatchImportResult } from "@/types/admin";
+import type { BatchImportResult, ExcelImportRowResult } from "@/types/admin";
 import type { AuditAction } from "@/types/audit";
 
 async function ensureProductWriter(): Promise<
@@ -316,6 +321,222 @@ export async function batchImportImages(formData: FormData) {
   return {
     ok: true as const,
     message: `处理完成：${matched} 成功，${unmatched} 未匹配，${failed} 失败`,
+    results,
+  };
+}
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"]);
+
+export async function importProductsFromExcel(formData: FormData) {
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return { ...gate, rows: [] as ExcelImportRowResult[] };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, message: "请选择 Excel 或 CSV 文件", rows: [] as ExcelImportRowResult[] };
+  }
+
+  const spreadsheet = readSpreadsheet(new Uint8Array(await file.arrayBuffer()), file.name);
+  if ("error" in spreadsheet) {
+    return { ok: false as const, message: spreadsheet.error, rows: [] as ExcelImportRowResult[] };
+  }
+
+  const parsed = parseProductSheet(spreadsheet.rows);
+  if (parsed.error) {
+    return { ok: false as const, message: parsed.error, rows: [] as ExcelImportRowResult[] };
+  }
+
+  const [products, directory] = await Promise.all([fetchAllProducts(), listCategories()]);
+  const plans = planProductImport(
+    parsed.rows,
+    products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      spec: product.spec,
+      category: product.category,
+      inStock: product.inStock,
+      createdAt: product.createdAt,
+    })),
+    directory.categories.map((category) => ({
+      slug: category.slug,
+      nameZh: category.nameZh,
+      nameRu: category.nameRu,
+      nameUz: category.nameUz,
+      enabled: category.enabled,
+    })),
+  );
+
+  const createdIds = new Map<number, string>();
+  const rows: ExcelImportRowResult[] = [];
+
+  for (const plan of plans) {
+    if (plan.kind === "fail") {
+      rows.push({ rowNumber: plan.rowNumber, name: plan.name, spec: plan.spec, status: "failed", message: plan.message });
+      continue;
+    }
+
+    try {
+      if (plan.kind === "create") {
+        const id = await insertProduct({
+          sourceKey: `excel-${randomUUID().replace(/-/g, "")}`,
+          name: plan.name,
+          nameRu: "",
+          nameUz: "",
+          spec: plan.spec,
+          specRu: "",
+          specUz: "",
+          image: PLACEHOLDER_IMAGE,
+          price: plan.price,
+          inStock: plan.inStock,
+          isNew: false,
+          isPublished: true,
+          sortOrder: 0,
+          category: plan.category,
+        });
+        createdIds.set(plan.rowNumber, id);
+        rows.push({
+          rowNumber: plan.rowNumber,
+          name: plan.name,
+          spec: plan.spec,
+          status: "created",
+          message: "已新建",
+        });
+        continue;
+      }
+
+      const productId = plan.productId.startsWith("pending:")
+        ? createdIds.get(Number(plan.productId.slice("pending:".length)))
+        : plan.productId;
+      if (!productId) {
+        rows.push({
+          rowNumber: plan.rowNumber,
+          name: plan.name,
+          spec: plan.spec,
+          status: "failed",
+          message: "找不到刚才新建的商品",
+        });
+        continue;
+      }
+
+      await updateImportedProduct(productId, {
+        price: plan.price,
+        category: plan.category,
+        inStock: plan.inStock,
+      });
+      rows.push({
+        rowNumber: plan.rowNumber,
+        name: plan.name,
+        spec: plan.spec,
+        status: "updated",
+        message: plan.warning ?? "已更新单价" + (plan.category ? "、分类" : "") + (plan.inStock != null ? "、库存" : ""),
+      });
+    } catch (err) {
+      rows.push({
+        rowNumber: plan.rowNumber,
+        name: plan.name,
+        spec: plan.spec,
+        status: "failed",
+        message: err instanceof Error ? err.message : "写入失败",
+      });
+    }
+  }
+
+  const created = rows.filter((row) => row.status === "created").length;
+  const updated = rows.filter((row) => row.status === "updated").length;
+  const failed = rows.filter((row) => row.status === "failed").length;
+
+  await writeAudit(gate.user, {
+    action: "product.import",
+    targetType: "product",
+    targetId: null,
+    summary: `Excel 导入商品：新建 ${created}，更新 ${updated}，失败 ${failed}`,
+  });
+  revalidatePath("/");
+  revalidatePath("/admin");
+
+  return {
+    ok: true as const,
+    message: `处理完成：新建 ${created}，更新 ${updated}，失败 ${failed}`,
+    rows,
+  };
+}
+
+export async function importImagesByNameSpec(formData: FormData) {
+  const gate = await ensureProductWriter();
+  if (!gate.ok) return { ...gate, results: [] as BatchImportResult[] };
+
+  const files = formData
+    .getAll("files")
+    .filter((file): file is File => file instanceof File && file.size > 0);
+  if (!files.length) {
+    return { ok: false as const, message: "请选择至少一张图片", results: [] as BatchImportResult[] };
+  }
+
+  const products = await fetchAllProducts();
+  const results: BatchImportResult[] = [];
+
+  for (const file of files) {
+    const matches = products.filter((product) => nameSpecImageKey(product.name, product.spec) === fileImageKey(file.name));
+    if (!matches.length) {
+      results.push({
+        filename: file.name,
+        status: "unmatched",
+        message: "没有名称+规格与文件名一致的商品，未写入",
+      });
+      continue;
+    }
+
+    const extension = (file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? "").toLowerCase();
+    if (!IMAGE_EXTENSIONS.has(extension)) {
+      results.push({
+        filename: file.name,
+        status: "error",
+        message: "只支持 jpg、png、gif、webp、avif、svg",
+      });
+      continue;
+    }
+
+    try {
+      // 中文文件名会被现有上传函数洗成横线，这里改成 ASCII 再交给它。存取路径仍是 /products/<分类>/<文件名>。
+      const renamed = new File([await file.arrayBuffer()], `import-${randomUUID()}${extension}`, {
+        type: file.type || "application/octet-stream",
+      });
+      const imageUrl = await uploadProductImage(renamed, matches[0]?.category || "misc");
+      for (const product of matches) {
+        await updateProductImage(product.id, imageUrl);
+      }
+      results.push({
+        filename: file.name,
+        status: "matched",
+        productName: matches.map((product) => `${product.name}${product.spec}`).join("、"),
+        imageUrl,
+        message: matches.length > 1 ? `已设为 ${matches.length} 个同名同规格商品的主图` : "已设为主图",
+      });
+    } catch (err) {
+      results.push({
+        filename: file.name,
+        status: "error",
+        message: err instanceof Error ? err.message : "上传失败",
+      });
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+
+  const matched = results.filter((item) => item.status === "matched").length;
+  const unmatched = results.filter((item) => item.status === "unmatched").length;
+  const failed = results.filter((item) => item.status === "error").length;
+  await writeAudit(gate.user, {
+    action: "product.import",
+    targetType: "product",
+    targetId: null,
+    summary: `按名称+规格导入主图：${matched} 成功，${unmatched} 未匹配，${failed} 失败`,
+  });
+
+  return {
+    ok: true as const,
+    message: `处理完成：${matched} 已设为主图，${unmatched} 未匹配，${failed} 失败。未匹配的图片没有写入。`,
     results,
   };
 }
