@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { transitionOrderStatusAction } from "@/app/admin/actions";
+import { copyText } from "@/lib/copy-text";
+import { displayOrDash, formatDeliveryBlock } from "@/lib/delivery-block";
 import { computeOrderStats } from "@/lib/order-stats";
 import {
   nextOrderStatus,
@@ -17,7 +19,6 @@ import type { OrderRecord, OrderStatus } from "@/types/order";
 interface OrderTableProps {
   orders: OrderRecord[];
   canFulfill: boolean;
-  showStats: boolean;
   notificationsEnabled: boolean;
 }
 
@@ -48,10 +49,10 @@ function channelLabel(channel: OrderRecord["channel"]): string {
   return channel === "wechat" ? "微信" : "Telegram";
 }
 
-export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled }: OrderTableProps) {
+export function OrderTable({ orders, canFulfill, notificationsEnabled }: OrderTableProps) {
   const router = useRouter();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -113,56 +114,6 @@ export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled
         </p>
       )}
 
-      {showStats ? (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-slate-500">已完成订单</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{stats.completedCount}</p>
-              <p className="mt-1 text-xs text-slate-500">回店回款后才计入</p>
-            </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-              <p className="text-sm text-emerald-700">已完成收入</p>
-              <p className="mt-2 text-3xl font-bold text-emerald-800">{formatPrice(stats.totalRevenue)}</p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">销售统计（已完成订单）</h2>
-            {stats.soldProducts.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">暂无已完成订单的销售数据。</p>
-            ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-slate-200 text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2 font-semibold">商品</th>
-                      <th className="px-3 py-2 font-semibold">规格</th>
-                      <th className="px-3 py-2 font-semibold">销量</th>
-                      <th className="px-3 py-2 font-semibold">销售额</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.soldProducts.map((item) => (
-                      <tr key={`${item.productId}-${item.name}`} className="border-b border-slate-100 last:border-b-0">
-                        <td className="px-3 py-2 text-slate-900">{item.name}</td>
-                        <td className="px-3 py-2 text-slate-600">{item.spec || "—"}</td>
-                        <td className="px-3 py-2 font-semibold text-slate-900">{item.quantity}</td>
-                        <td className="px-3 py-2 font-bold text-red-600">{formatPrice(item.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-          当前账号不能查看营收和热销统计。订单列表仍可按履约阶段筛选。
-        </p>
-      )}
-
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button
@@ -211,8 +162,8 @@ export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled
               </thead>
               <tbody>
                 {filtered.map((order) => {
-                  const expanded = expandedId === order.id;
                   const rowPending = isPending && pendingId === order.id;
+                  const deliveryText = formatDeliveryBlock(order);
                   const next = nextOrderStatus(order.status);
                   const previous = previousOrderStatus(order.status);
 
@@ -269,57 +220,67 @@ export function OrderTable({ orders, canFulfill, showStats, notificationsEnabled
                               {rowPending ? "处理中…" : `退回至${ORDER_STATUS_LABELS[previous]}`}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => setExpandedId(expanded ? null : order.id)}
-                            className="text-xs font-semibold text-red-600 hover:underline"
-                          >
-                            {expanded ? "收起" : "详情"}
-                          </button>
                         </div>
-                        {expanded && (
-                          <div className="mt-3 max-w-md space-y-3 text-slate-700">
-                            <p>
-                              <span className="font-semibold text-slate-900">履约：</span>
-                              {ORDER_STATUS_HINTS[order.status]}
-                            </p>
-                            {order.completedAt && (
-                              <p>
-                                <span className="font-semibold text-slate-900">回款时间：</span>
-                                {formatDate(order.completedAt)}
-                              </p>
-                            )}
-                            {order.customerAddress && (
-                              <p>
-                                <span className="font-semibold text-slate-900">地址：</span>
-                                {order.customerAddress}
-                              </p>
-                            )}
-                            {order.note && (
-                              <p>
-                                <span className="font-semibold text-slate-900">备注：</span>
-                                {order.note}
-                              </p>
-                            )}
-                            <div>
-                              <p className="mb-1 font-semibold text-slate-900">商品明细</p>
-                              <ul className="space-y-1 text-xs">
-                                {order.items.map((item, idx) => (
-                                  <li key={`${order.id}-${idx}`}>
-                                    {item.name} ({item.spec}) × {item.quantity} —{" "}
-                                    {formatPrice(item.price * item.quantity)}
-                                  </li>
-                                ))}
-                              </ul>
+                        <div className="mt-3 max-w-xl space-y-3 text-slate-700">
+                          <p>
+                            <span className="font-semibold text-slate-900">履约：</span>
+                            {ORDER_STATUS_HINTS[order.status]}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-slate-900">回款时间：</span>
+                            {order.completedAt ? formatDate(order.completedAt) : "—"}
+                          </p>
+                          <div>
+                            <div className="mb-1 flex items-center gap-2">
+                              <p className="font-semibold text-slate-900">配送信息</p>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const ok = await copyText(deliveryText);
+                                  if (ok) {
+                                    setCopiedId(order.id);
+                                    return;
+                                  }
+                                  window.prompt("复制失败，请手动复制：", deliveryText);
+                                }}
+                                className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                              >
+                                {copiedId === order.id ? "已复制" : "复制配送信息"}
+                              </button>
                             </div>
-                            <div>
-                              <p className="mb-1 font-semibold text-slate-900">订单文本</p>
-                              <pre className="max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 text-xs whitespace-pre-wrap">
-                                {order.orderText}
-                              </pre>
-                            </div>
+                            <pre className="rounded-lg bg-slate-50 p-3 text-xs whitespace-pre-wrap">{deliveryText}</pre>
                           </div>
-                        )}
+                          {order.note ? (
+                            <p>
+                              <span className="font-semibold text-slate-900">备注：</span>
+                              {order.note}
+                            </p>
+                          ) : null}
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full text-left text-xs">
+                              <thead className="text-slate-500">
+                                <tr>
+                                  <th className="py-1 pr-3 font-semibold">名称</th>
+                                  <th className="py-1 pr-3 font-semibold">规格</th>
+                                  <th className="py-1 pr-3 font-semibold">数量</th>
+                                  <th className="py-1 pr-3 font-semibold">单价</th>
+                                  <th className="py-1 font-semibold">小计</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {order.items.map((item, idx) => (
+                                  <tr key={`${order.id}-${idx}`} className="border-t border-slate-100">
+                                    <td className="py-1.5 pr-3 font-semibold text-slate-900">{item.name}</td>
+                                    <td className="py-1.5 pr-3">{displayOrDash(item.spec)}</td>
+                                    <td className="py-1.5 pr-3">{item.quantity}</td>
+                                    <td className="py-1.5 pr-3">{formatPrice(item.price)}</td>
+                                    <td className="py-1.5 font-semibold">{formatPrice(item.price * item.quantity)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   );
