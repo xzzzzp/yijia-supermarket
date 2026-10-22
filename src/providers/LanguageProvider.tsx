@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { Locale } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
@@ -12,28 +12,49 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 const LOCALE_KEY = "yijia-locale";
+const LOCALE_EVENT = "yijia-locale";
+
+function isLocale(value: string | null): value is Locale {
+  return value === "ru" || value === "uz" || value === "zh";
+}
+
+function subscribeLocale(onChange: () => void): () => void {
+  window.addEventListener(LOCALE_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(LOCALE_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function readLocale(): Locale {
+  try {
+    const saved = localStorage.getItem(LOCALE_KEY);
+    if (isLocale(saved)) return saved;
+  } catch {
+    // 隐私模式或禁用 localStorage 时用默认语言
+  }
+  return "ru";
+}
+
+function readServerLocale(): Locale {
+  return "ru";
+}
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("ru");
-  const [mounted, setMounted] = useState(false);
+  const locale = useSyncExternalStore(subscribeLocale, readLocale, readServerLocale);
 
   useEffect(() => {
-    const saved = localStorage.getItem(LOCALE_KEY) as Locale | null;
-    if (saved && ["ru", "uz", "zh"].includes(saved)) {
-      setLocaleState(saved);
-    }
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      document.documentElement.lang = locale;
-    }
-  }, [locale, mounted]);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLocale = (next: Locale) => {
-    setLocaleState(next);
-    localStorage.setItem(LOCALE_KEY, next);
+    try {
+      localStorage.setItem(LOCALE_KEY, next);
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new Event(LOCALE_EVENT));
   };
 
   const value: LanguageContextValue = {

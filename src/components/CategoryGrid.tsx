@@ -30,7 +30,7 @@ export function CategoryGrid({ categories }: { categories: CategoryInfo[] }) {
     <section className="border-b border-surface-2 bg-surface px-5 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <h2 className="font-display text-xl font-semibold text-accent">{t("popularCategories")}</h2>
-        <div className="scroll-rail mt-4 flex gap-3 overflow-x-auto pb-2">
+        <div className="scroll-rail mt-3 grid grid-cols-6 gap-1 overflow-x-hidden md:mt-4 md:flex md:gap-3 md:overflow-x-auto md:pb-2">
           {visible.map((cat, i) => {
             const name = getCategoryName(locale, cat);
             const initial = name.charAt(0).toUpperCase();
@@ -40,14 +40,17 @@ export function CategoryGrid({ categories }: { categories: CategoryInfo[] }) {
               <Link
                 key={cat.slug}
                 href={cat.route}
-                className="group flex w-28 shrink-0 flex-col items-center gap-2 rounded-2xl border border-transparent bg-white p-4 transition hover:border-brand/30 hover:shadow-md"
+                className="group flex min-w-0 flex-col items-center gap-1 rounded-xl border border-transparent bg-white p-1.5 transition hover:border-brand/30 hover:shadow-md md:w-28 md:shrink-0 md:gap-2 md:rounded-2xl md:p-4"
               >
                 <span
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold ${color}`}
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold md:h-12 md:w-12 md:rounded-xl md:text-lg ${color}`}
                 >
                   {initial}
                 </span>
-                <span className="line-clamp-2 text-center text-xs font-semibold leading-4 text-ink group-hover:text-brand">
+                <span className="w-full truncate text-center text-[10px] leading-4 font-semibold text-ink group-hover:text-brand md:hidden">
+                  {name}
+                </span>
+                <span className="hidden text-center text-xs leading-4 font-semibold text-ink group-hover:text-brand md:line-clamp-2">
                   {name}
                 </span>
               </Link>

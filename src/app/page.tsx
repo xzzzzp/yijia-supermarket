@@ -6,8 +6,7 @@ import { filterNewProducts } from "@/lib/products";
 import { STORE_CONFIG } from "@/lib/config";
 import { ProductCatalogProvider } from "@/providers/ProductCatalogProvider";
 import { LanguageProvider } from "@/providers/LanguageProvider";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { StorefrontShell } from "@/components/StorefrontShell";
 import { HomePage } from "@/components/HomePage";
 
 export const metadata: Metadata = {
@@ -22,9 +21,9 @@ export default async function Home() {
   return (
     <ProductCatalogProvider products={products}>
       <LanguageProvider>
-        <Header />
-        <HomePage newProducts={newProducts} categories={categoriesForHome(directory.categories)} />
-        <Footer />
+        <StorefrontShell>
+          <HomePage newProducts={newProducts} categories={categoriesForHome(directory.categories)} />
+        </StorefrontShell>
       </LanguageProvider>
     </ProductCatalogProvider>
   );

@@ -4,8 +4,7 @@ import { fetchProducts } from "@/lib/products.server";
 import { filterByCategory, filterNewProducts } from "@/lib/products";
 import { ProductCatalogProvider } from "@/providers/ProductCatalogProvider";
 import { LanguageProvider } from "@/providers/LanguageProvider";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { StorefrontShell } from "@/components/StorefrontShell";
 import { ProductList } from "@/components/ProductList";
 
 export default async function CategoryPage({
@@ -20,11 +19,11 @@ export default async function CategoryPage({
     return (
       <ProductCatalogProvider products={allProducts}>
         <LanguageProvider>
-          <Header />
-          <main className="min-h-screen bg-surface">
-            <ProductList products={filterNewProducts(allProducts)} />
-          </main>
-          <Footer />
+          <StorefrontShell>
+            <main className="min-h-screen bg-surface">
+              <ProductList products={filterNewProducts(allProducts)} />
+            </main>
+          </StorefrontShell>
         </LanguageProvider>
       </ProductCatalogProvider>
     );
@@ -38,11 +37,11 @@ export default async function CategoryPage({
   return (
     <ProductCatalogProvider products={allProducts}>
       <LanguageProvider>
-        <Header />
-        <main className="min-h-screen bg-surface">
-          <ProductList products={filterByCategory(allProducts, category)} categoryInfo={categoryInfo} />
-        </main>
-        <Footer />
+        <StorefrontShell>
+          <main className="min-h-screen bg-surface">
+            <ProductList products={filterByCategory(allProducts, category)} categoryInfo={categoryInfo} />
+          </main>
+        </StorefrontShell>
       </LanguageProvider>
     </ProductCatalogProvider>
   );

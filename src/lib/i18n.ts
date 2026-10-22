@@ -1,3 +1,5 @@
+import type { OrderStatus } from "@/types/order";
+
 export type Locale = "ru" | "uz" | "zh";
 
 export const LOCALES: { code: Locale; label: string; short: string }[] = [
@@ -54,7 +56,36 @@ type TranslationKey =
   | "sortDefault"
   | "sortPriceAsc"
   | "sortPriceDesc"
-  | "sortName";
+  | "sortName"
+  | "navHome"
+  | "navCategories"
+  | "navOrders"
+  | "checkout"
+  | "checkoutTitle"
+  | "selectAll"
+  | "unitPrice"
+  | "lineTotal"
+  | "rememberAddress"
+  | "orderLookupTitle"
+  | "orderLookupHint"
+  | "orderNumber"
+  | "lookupSubmit"
+  | "lookupNeedQuery"
+  | "lookupNotFound"
+  | "lookupMismatch"
+  | "lookupEmpty"
+  | "deliveryInfo"
+  | "specLabel"
+  | "statusLabel"
+  | "placedAt"
+  | "completedAt"
+  | "goCheckout"
+  | "nothingSelected"
+  | "categoryEmpty"
+  | "backToCart"
+  | "purchaseList"
+  | "contactRequired"
+  | "copied";
 
 const translations: Record<Locale, Record<TranslationKey, string>> = {
   ru: {
@@ -106,6 +137,35 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     sortPriceAsc: "Цена ↑",
     sortPriceDesc: "Цена ↓",
     sortName: "По названию",
+    navHome: "Главная",
+    navCategories: "Категории",
+    navOrders: "Заказы",
+    checkout: "Оформить",
+    checkoutTitle: "Оформление",
+    selectAll: "Выбрать все",
+    unitPrice: "Цена",
+    lineTotal: "Сумма",
+    rememberAddress: "Запомнить адрес",
+    orderLookupTitle: "Поиск заказа",
+    orderLookupHint: "Укажите телефон, номер заказа или оба. Если указаны оба, они должны относиться к одному заказу.",
+    orderNumber: "Номер заказа",
+    lookupSubmit: "Найти",
+    lookupNeedQuery: "Введите телефон или номер заказа",
+    lookupNotFound: "Заказ не найден",
+    lookupMismatch: "Телефон не совпадает с номером заказа",
+    lookupEmpty: "Заказов по этому телефону нет",
+    deliveryInfo: "Доставка",
+    specLabel: "Фасовка",
+    statusLabel: "Статус",
+    placedAt: "Создан",
+    completedAt: "Завершён",
+    goCheckout: "К оформлению",
+    nothingSelected: "Выберите товары",
+    categoryEmpty: "Нет доступных категорий",
+    backToCart: "Вернуться в корзину",
+    purchaseList: "Состав заказа",
+    contactRequired: "Укажите имя, телефон и адрес",
+    copied: "Скопировано",
   },
   uz: {
     siteName: "Yijia Chinese Supermarket",
@@ -156,6 +216,35 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     sortPriceAsc: "Narx ↑",
     sortPriceDesc: "Narx ↓",
     sortName: "Nomi bo'yicha",
+    navHome: "Bosh sahifa",
+    navCategories: "Toifalar",
+    navOrders: "Buyurtmalar",
+    checkout: "Rasmiylashtirish",
+    checkoutTitle: "Rasmiylashtirish",
+    selectAll: "Hammasini tanlash",
+    unitPrice: "Narx",
+    lineTotal: "Summa",
+    rememberAddress: "Manzilni eslab qolish",
+    orderLookupTitle: "Buyurtmani qidirish",
+    orderLookupHint: "Telefon, buyurtma raqami yoki ikkalasini kiriting. Ikkalasi ham kiritilsa, ular bitta buyurtmaga tegishli bo‘lishi kerak.",
+    orderNumber: "Buyurtma raqami",
+    lookupSubmit: "Qidirish",
+    lookupNeedQuery: "Telefon yoki buyurtma raqamini kiriting",
+    lookupNotFound: "Buyurtma topilmadi",
+    lookupMismatch: "Telefon buyurtma raqamiga mos kelmaydi",
+    lookupEmpty: "Bu telefon bo‘yicha buyurtma yo‘q",
+    deliveryInfo: "Yetkazib berish",
+    specLabel: "O‘lchami",
+    statusLabel: "Holat",
+    placedAt: "Yaratilgan",
+    completedAt: "Yakunlangan",
+    goCheckout: "Rasmiylashtirish",
+    nothingSelected: "Mahsulotlarni tanlang",
+    categoryEmpty: "Mavjud toifalar yo‘q",
+    backToCart: "Savatga qaytish",
+    purchaseList: "Xarid ro‘yxati",
+    contactRequired: "Ism, telefon va manzilni kiriting",
+    copied: "Nusxa olindi",
   },
   zh: {
     siteName: "亿佳华人超市",
@@ -206,6 +295,35 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     sortPriceAsc: "价格 ↑",
     sortPriceDesc: "价格 ↓",
     sortName: "按名称",
+    navHome: "首页",
+    navCategories: "分类",
+    navOrders: "订单",
+    checkout: "去结算",
+    checkoutTitle: "结算",
+    selectAll: "全选",
+    unitPrice: "单价",
+    lineTotal: "小计",
+    rememberAddress: "记住地址",
+    orderLookupTitle: "订单查询",
+    orderLookupHint: "填写电话、订单号，或两者都填。两者都填时必须属于同一笔订单。",
+    orderNumber: "订单号",
+    lookupSubmit: "查询",
+    lookupNeedQuery: "请填写电话或订单号",
+    lookupNotFound: "没有找到该订单",
+    lookupMismatch: "电话与订单号不一致",
+    lookupEmpty: "没有找到该电话的订单",
+    deliveryInfo: "配送信息",
+    specLabel: "规格",
+    statusLabel: "状态",
+    placedAt: "下单时间",
+    completedAt: "完成时间",
+    goCheckout: "去结算",
+    nothingSelected: "请先勾选要结算的商品",
+    categoryEmpty: "暂无可用分类",
+    backToCart: "返回购物车",
+    purchaseList: "购买清单",
+    contactRequired: "请填写姓名、电话和配送地址",
+    copied: "已复制",
   },
 };
 
@@ -256,4 +374,29 @@ export function formatMinOrderNotMet(locale: Locale, remaining: number): string 
   if (locale === "zh") return `还差 ${formatted} UZS 才能下单`;
   if (locale === "uz") return `Buyurtma berish uchun yana ${formatted} UZS kerak`;
   return `Для заказа не хватает ${formatted} UZS`;
+}
+
+const ORDER_STATUS_TEXT: Record<Locale, Record<OrderStatus, string>> = {
+  ru: {
+    pending: "Ожидает подтверждения",
+    confirmed: "Подтверждён",
+    delivering: "В доставке",
+    completed: "Завершён",
+  },
+  uz: {
+    pending: "Tasdiqlash kutilmoqda",
+    confirmed: "Tasdiqlangan",
+    delivering: "Yetkazilmoqda",
+    completed: "Yakunlangan",
+  },
+  zh: {
+    pending: "待确认",
+    confirmed: "已确认",
+    delivering: "配送中",
+    completed: "已完成",
+  },
+};
+
+export function orderStatusLabel(locale: Locale, status: OrderStatus): string {
+  return ORDER_STATUS_TEXT[locale][status];
 }
