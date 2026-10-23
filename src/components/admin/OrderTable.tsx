@@ -203,7 +203,7 @@ export function OrderTable({
                     {formatPrice(order.total)}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-slate-600">{formatDate(order.createdAt)}</p>
+                <p className="mt-2 text-sm text-slate-600">{formatTashkentDate(order.createdAt)}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className="font-semibold break-words text-slate-900">{order.customerName || "—"}</span>
                   <span className="text-slate-700">{order.customerPhone || "—"}</span>
@@ -222,7 +222,7 @@ export function OrderTable({
                   </p>
                   <p>
                     <span className="font-semibold text-slate-900">回款时间：</span>
-                    {order.completedAt ? formatDate(order.completedAt) : "—"}
+                    {order.completedAt ? formatTashkentDate(order.completedAt) : "—"}
                   </p>
                   <div>
                     <p className="font-semibold text-slate-900">配送信息</p>
