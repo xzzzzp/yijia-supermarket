@@ -27,16 +27,19 @@ function CapabilityCheckboxes({
   values?: Pick<StaffRecord, "orderNotifications" | "viewStats" | "fulfillment" | "manageProducts">;
 }) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid gap-2 md:flex md:flex-wrap md:gap-3">
       {CAPABILITIES.map((capability) => (
-        <label key={capability.name} className="flex items-center gap-2 text-sm text-slate-700">
+        <label
+          key={capability.name}
+          className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0"
+        >
           <input type="hidden" name={capability.name} value="0" />
           <input
             type="checkbox"
             name={capability.name}
             value="1"
             defaultChecked={values ? values[capability.name] : false}
-            className="size-4 accent-red-600"
+            className="size-5 accent-red-600 md:size-4"
           />
           {capability.label}
         </label>
@@ -108,14 +111,14 @@ export function StaffManager({
       </div>
 
       {warning && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 break-words text-amber-900">
           {warning}
         </p>
       )}
 
       {message && (
         <p
-          className={`rounded-2xl px-4 py-3 text-sm ${
+          className={`rounded-2xl px-4 py-3 text-sm leading-6 break-words ${
             messageOk ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"
           }`}
         >
@@ -160,16 +163,16 @@ export function StaffManager({
             </label>
           )}
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0">
           <input type="hidden" name="isOwner" value="0" />
-          <input type="checkbox" name="isOwner" value="1" className="size-4 accent-red-600" />
+          <input type="checkbox" name="isOwner" value="1" className="size-5 accent-red-600 md:size-4" />
           设为店主
         </label>
         <CapabilityCheckboxes />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+          className="min-h-11 w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 md:min-h-0 md:w-auto"
         >
           {pending ? "保存中…" : "添加店员"}
         </button>
@@ -205,7 +208,7 @@ export function StaffManager({
                       type="button"
                       disabled={pending}
                       onClick={() => handleDelete(member)}
-                      className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      className="min-h-11 w-full rounded-xl border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 md:min-h-0 md:w-auto md:rounded-lg md:text-xs"
                     >
                       删除
                     </button>
@@ -243,14 +246,14 @@ export function StaffManager({
                     <p className="text-sm text-slate-600">店主（至少保留一名，不能取消）</p>
                   </>
                 ) : (
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm text-slate-700 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0">
                     <input type="hidden" name="isOwner" value="0" />
                     <input
                       type="checkbox"
                       name="isOwner"
                       value="1"
                       defaultChecked={member.isOwner}
-                      className="size-4 accent-red-600"
+                      className="size-5 accent-red-600 md:size-4"
                     />
                     店主
                   </label>
@@ -261,7 +264,7 @@ export function StaffManager({
                 <button
                   type="submit"
                   disabled={pending}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="min-h-11 w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50 md:min-h-0 md:w-auto"
                 >
                   {pending ? "保存中…" : "保存权限"}
                 </button>

@@ -19,7 +19,7 @@ export default async function AdminDashboardLayout({
   return (
     <div className="mx-auto max-w-6xl px-5 py-8">
       <div className="mb-2">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm break-words text-slate-500">
           已登录：{user.email}（{adminRoleLabel(user)}）
         </p>
       </div>

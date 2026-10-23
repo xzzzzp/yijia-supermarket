@@ -68,7 +68,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
       <h2 className="text-lg font-bold text-slate-900">{title}</h2>
       {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       <div className="mt-4 space-y-4">{children}</div>
@@ -117,7 +117,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
       </Section>
 
       <Section title="营业时间" description="显示在前台营业时间区块；开始/结束小时用于判断「营业中/已打烊」。">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="businessHoursOpen" className="block text-sm font-semibold text-slate-800">
               开始营业（小时 0–23）
@@ -161,7 +161,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
           values={settings.contactDesc}
           multiline
         />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="phone" className="block text-sm font-semibold text-slate-800">
               电话（tel 链接）
@@ -261,7 +261,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+        className="min-h-11 w-full rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 md:min-h-0 md:w-auto"
       >
         {pending ? "保存中…" : "保存设置"}
       </button>

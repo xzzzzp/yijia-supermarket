@@ -26,7 +26,7 @@ export function FilePicker({
   const [names, setNames] = useState<string[]>([]);
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3">
+    <div className="flex w-full min-w-0 flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center md:gap-3">
       <input
         ref={inputRef}
         type="file"
@@ -44,11 +44,11 @@ export function FilePicker({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-red-300 hover:bg-red-50"
+        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-red-300 hover:bg-red-50 md:min-h-0 md:w-auto"
       >
         选择文件
       </button>
-      <p className="min-w-0 text-sm break-all text-slate-600">
+      <p className="w-full min-w-0 text-sm text-slate-600 max-md:break-words md:w-auto md:break-all">
         {names.length === 0 ? "未选择文件" : names.join("、")}
       </p>
     </div>

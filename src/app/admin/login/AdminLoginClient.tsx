@@ -121,7 +121,7 @@ function LoginContent({
   return (
     <>
       {setupHint && (
-        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 break-words text-amber-800">
           {setupHint}
         </p>
       )}
@@ -150,11 +150,11 @@ export function AdminLoginClient({
 }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
         <p className="text-sm font-semibold uppercase tracking-wide text-red-600">
           亿佳超市后台
         </p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-950">管理员登录</h1>
+        <h1 className="mt-3 text-2xl font-bold text-slate-950 md:text-3xl">管理员登录</h1>
         <p className="mt-2 text-sm text-slate-600">
           {authMode === "mysql"
             ? "使用店员账号登录"

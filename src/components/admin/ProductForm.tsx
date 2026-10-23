@@ -114,7 +114,7 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
             type="button"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
-            className="mt-3 w-full rounded-xl border border-slate-200 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="mt-3 min-h-11 w-full rounded-xl border border-slate-200 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             {uploading ? "上传中…" : "上传图片"}
           </button>
@@ -127,8 +127,8 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
           <input type="hidden" name="image" value={image} readOnly />
         </div>
 
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="source_key *" name="sourceKey" defaultValue={values.sourceKey} />
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-slate-700">
@@ -156,19 +156,19 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="中文名称 *" name="name" defaultValue={values.name} />
             <Field label="俄语名称" name="nameRu" defaultValue={values.nameRu} />
             <Field label="乌兹别克语名称" name="nameUz" defaultValue={values.nameUz} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="中文规格" name="spec" defaultValue={values.spec} />
             <Field label="俄语规格" name="specRu" defaultValue={values.specRu} />
             <Field label="乌兹别克语规格" name="specUz" defaultValue={values.specUz} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field
               label="价格 (som) *"
               name="price"
@@ -189,7 +189,7 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
             />
           </div>
 
-          <div className="flex flex-wrap gap-6">
+          <div className="grid gap-2 md:flex md:flex-wrap md:gap-6">
             <Checkbox label="有货" name="inStock" defaultChecked={values.inStock} />
             <Checkbox label="新品推荐" name="isNew" defaultChecked={values.isNew} />
             <Checkbox label="已上架" name="isPublished" defaultChecked={values.isPublished} />
@@ -213,7 +213,7 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+          className="min-h-11 w-full rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 md:min-h-0 md:w-auto"
         >
           {pending ? "保存中…" : mode === "create" ? "创建商品" : "保存修改"}
         </button>
@@ -235,7 +235,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={name} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={name} className="block text-sm font-medium break-words text-slate-700">
         {label}
       </label>
       <input
@@ -260,12 +260,12 @@ function Checkbox({
   defaultChecked?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+    <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0">
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="h-4 w-4 rounded border-slate-300 text-red-600"
+        className="size-5 rounded border-slate-300 text-red-600 md:size-4"
       />
       {label}
     </label>

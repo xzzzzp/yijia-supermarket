@@ -24,7 +24,7 @@ export default async function AdminNotificationsPage() {
         </p>
       </div>
       {warning && (
-        <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 break-words text-amber-950">
           {warning}
         </p>
       )}

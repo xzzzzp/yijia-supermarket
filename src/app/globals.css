@@ -10,6 +10,16 @@
   --color-surface-2: #efeae2;
   --color-ink: #1a2332;
   --color-muted: #6b7280;
+  --animate-admin-drawer: admin-drawer-slide 180ms ease-out;
+
+  @keyframes admin-drawer-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
 }
 
 body {

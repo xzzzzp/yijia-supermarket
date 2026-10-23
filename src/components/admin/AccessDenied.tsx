@@ -8,7 +8,7 @@ export function AccessDenied({
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-amber-950 shadow-sm">
       <h1 className="text-xl font-bold">{title}</h1>
-      <p className="mt-2 text-sm leading-6">{message}</p>
+      <p className="mt-2 text-sm leading-6 break-words">{message}</p>
     </div>
   );
 }

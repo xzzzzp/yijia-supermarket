@@ -148,18 +148,18 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
       </div>
 
       {source !== "mysql" && (
-        <p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-800">
           本地开发模式：当前显示内置分类。配置 MYSQL_* 并执行 mysql/migrations/20261018_product_categories.sql 后才能增删改。
         </p>
       )}
 
       {warning && (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{warning}</p>
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 break-words text-amber-900">{warning}</p>
       )}
 
       {message && (
         <p
-          className={`rounded-2xl px-4 py-3 text-sm ${
+          className={`rounded-2xl px-4 py-3 text-sm leading-6 break-words ${
             messageOk ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"
           }`}
         >
@@ -167,9 +167,15 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">{draft.mode === "create" ? "新增分类" : `编辑 ${draft.slug}`}</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+      <form
+        id="category-editor"
+        onSubmit={handleSubmit}
+        className="scroll-mt-24 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5"
+      >
+        <h2 className="text-lg font-bold break-words text-slate-900">
+          {draft.mode === "create" ? "新增分类" : `编辑 ${draft.slug}`}
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-slate-700">
             slug *
             <input
@@ -196,7 +202,7 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
             />
           </label>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           <label className="block text-sm font-medium text-slate-700">
             中文名称 *
             <input
@@ -242,7 +248,7 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
             className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-red-500"
           />
         </label>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:gap-4">
           {draft.icon ? (
             <Image
               src={productImageSrc(draft.icon)}
@@ -257,7 +263,7 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
               {(draft.nameZh.trim().charAt(0) || "类").toUpperCase()}
             </span>
           )}
-          <div>
+          <div className="min-w-0">
             <input type="hidden" name="icon" value={draft.icon} />
             <input
               ref={fileRef}
@@ -269,12 +275,12 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
                 if (file) void handleIcon(file);
               }}
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
               <button
                 type="button"
                 disabled={uploading || pending}
                 onClick={() => fileRef.current?.click()}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+                className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50 disabled:opacity-50 md:min-h-0 md:w-auto"
               >
                 {uploading ? "上传中…" : "选择文件"}
               </button>
@@ -282,19 +288,19 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
                 <button
                   type="button"
                   onClick={() => setDraft({ ...draft, icon: "" })}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 md:min-h-0 md:w-auto"
                 >
                   移除图标
                 </button>
               )}
             </div>
-            <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">
+            <p className="mt-2 max-w-md text-xs leading-5 break-words text-slate-500">
               首页热门分类优先显示图标。不上传时显示名称首字母色块。选好图片后还需要保存分类。
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-6 text-sm text-slate-700">
-          <label className="flex items-center gap-2">
+        <div className="grid gap-2 text-sm text-slate-700 md:flex md:flex-wrap md:gap-6">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0">
             <input type="hidden" name="showOnHome" value="0" />
             <input
               type="checkbox"
@@ -302,11 +308,11 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
               value="1"
               checked={draft.showOnHome}
               onChange={(event) => setDraft({ ...draft, showOnHome: event.target.checked })}
-              className="size-4 accent-red-600"
+              className="size-5 accent-red-600 md:size-4"
             />
             首页显示
           </label>
-          <label className="flex items-center gap-2">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 md:min-h-0 md:gap-2 md:rounded-none md:border-0 md:px-0">
             <input type="hidden" name="enabled" value="0" />
             <input
               type="checkbox"
@@ -314,16 +320,16 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
               value="1"
               checked={draft.enabled}
               onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
-              className="size-4 accent-red-600"
+              className="size-5 accent-red-600 md:size-4"
             />
             启用
           </label>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
           <button
             type="submit"
             disabled={pending}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            className="min-h-11 w-full rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50 md:min-h-0 md:w-auto"
           >
             {pending ? "保存中…" : draft.mode === "create" ? "创建分类" : "保存修改"}
           </button>
@@ -331,7 +337,7 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
             <button
               type="button"
               onClick={() => setDraft(emptyDraft())}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 md:min-h-0 md:w-auto"
             >
               取消编辑
             </button>
@@ -339,7 +345,89 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="space-y-3 md:hidden">
+        {categories.map((category) => (
+          <article key={category.slug} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              {category.icon ? (
+                <Image
+                  src={productImageSrc(category.icon)}
+                  alt=""
+                  width={48}
+                  height={48}
+                  unoptimized
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
+                  {category.nameZh.charAt(0)}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-base leading-6 font-semibold break-words text-slate-900">{category.nameZh}</p>
+                <p className="mt-1 text-sm leading-5 break-words text-slate-500">
+                  {category.nameRu} / {category.nameUz}
+                </p>
+              </div>
+            </div>
+            {category.description ? (
+              <p className="mt-3 text-sm leading-6 break-words text-slate-600">{category.description}</p>
+            ) : null}
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="shrink-0 text-slate-500">排序</dt>
+                <dd className="font-medium text-slate-900">{category.sortOrder}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="shrink-0 text-slate-500">slug</dt>
+                <dd className="min-w-0 text-right font-mono text-xs break-all text-slate-600">{category.slug}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="shrink-0 text-slate-500">商品</dt>
+                <dd className="font-medium text-slate-900">{category.productCount}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="shrink-0 text-slate-500">首页</dt>
+                <dd className="font-medium text-slate-900">{category.showOnHome ? "显示" : "隐藏"}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="shrink-0 text-slate-500">启用</dt>
+                <dd className="font-medium text-slate-900">{category.enabled ? "启用" : "停用"}</dd>
+              </div>
+            </dl>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(draftFrom(category));
+                  setMessage("");
+                  if (window.matchMedia("(max-width: 767px)").matches) {
+                    document.getElementById("category-editor")?.scrollIntoView({ block: "start" });
+                  }
+                }}
+                className="flex min-h-11 items-center justify-center rounded-xl bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                编辑
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => handleDelete(category)}
+                className="flex min-h-11 items-center justify-center rounded-xl bg-red-50 px-3 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+              >
+                删除
+              </button>
+            </div>
+          </article>
+        ))}
+        {!categories.length && (
+          <p className="rounded-2xl border border-slate-200 bg-white py-12 text-center text-slate-500 shadow-sm">
+            还没有分类
+          </p>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50">

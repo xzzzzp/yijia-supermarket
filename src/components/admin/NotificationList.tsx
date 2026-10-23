@@ -26,6 +26,41 @@ function isNextRedirect(error: unknown): boolean {
   );
 }
 
+function NotificationOrderLink({
+  item,
+  isPending,
+  className,
+  onOpen,
+}: {
+  item: OrderNotificationView;
+  isPending: boolean;
+  className: string;
+  onOpen: (item: OrderNotificationView) => void;
+}) {
+  return (
+    <Link
+      href={adminOrderFocusPath(item.orderId)}
+      aria-label={`打开订单 ${item.orderId}`}
+      onClick={(event) => {
+        if (isPending) {
+          event.preventDefault();
+          return;
+        }
+        if (item.readAt) return;
+        if (isModifiedClick(event)) {
+          void markNotificationReadAction(item.notificationId);
+          return;
+        }
+        event.preventDefault();
+        onOpen(item);
+      }}
+      className={className}
+    >
+      {item.orderId}
+    </Link>
+  );
+}
+
 export function NotificationList({
   notifications,
   canOpenOrders,
@@ -72,21 +107,78 @@ export function NotificationList({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-600">未读 {unread} 条。这里只显示站内通知。</p>
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+        <p className="min-w-0 text-sm break-words text-slate-600">未读 {unread} 条。这里只显示站内通知。</p>
         {unread > 0 && (
           <button
             type="button"
             disabled={isPending}
             onClick={() => run("all", () => markAllNotificationsReadAction())}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 md:min-h-0 md:w-auto"
           >
             {isPending && pendingId === "all" ? "处理中…" : "全部标为已读"}
           </button>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="space-y-3 md:hidden">
+        {notifications.map((item) => {
+          const unreadRow = !item.readAt;
+          const rowPending = isPending && pendingId === item.notificationId;
+          return (
+            <article
+              key={item.notificationId}
+              className={`rounded-2xl border p-4 shadow-sm ${
+                unreadRow ? "border-red-200 bg-red-50/60" : "border-slate-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    unreadRow ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {unreadRow ? "未读" : "已读"}
+                </span>
+                <time className="text-sm text-slate-600">{formatTashkentDate(item.createdAt)}</time>
+              </div>
+              <p className="mt-3 text-base leading-6 font-semibold break-words text-slate-900">
+                {item.customerName || "—"}
+              </p>
+              <div className="mt-2">
+                {canOpenOrders ? (
+                  <NotificationOrderLink
+                    item={item}
+                    isPending={isPending}
+                    onOpen={openOrder}
+                    className="font-mono text-sm font-semibold break-all text-red-700 hover:underline"
+                  />
+                ) : (
+                  <p className="font-mono text-sm break-all text-slate-900">{item.orderId}</p>
+                )}
+              </div>
+              <div className="mt-4">
+                {unreadRow ? (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => run(item.notificationId, () => markNotificationReadAction(item.notificationId))}
+                    className="flex min-h-11 w-full items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {rowPending ? "处理中…" : "标为已读"}
+                  </button>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    {item.readAt ? `已读于 ${formatTashkentDate(item.readAt)}` : "—"}
+                  </p>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
@@ -110,26 +202,12 @@ export function NotificationList({
                     <td className="px-4 py-3 whitespace-nowrap text-slate-700">{formatTashkentDate(item.createdAt)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-900">
                       {canOpenOrders ? (
-                        <Link
-                          href={adminOrderFocusPath(item.orderId)}
-                          aria-label={`打开订单 ${item.orderId}`}
-                          onClick={(event) => {
-                            if (isPending) {
-                              event.preventDefault();
-                              return;
-                            }
-                            if (item.readAt) return;
-                            if (isModifiedClick(event)) {
-                              void markNotificationReadAction(item.notificationId);
-                              return;
-                            }
-                            event.preventDefault();
-                            openOrder(item);
-                          }}
+                        <NotificationOrderLink
+                          item={item}
+                          isPending={isPending}
+                          onOpen={openOrder}
                           className="font-semibold text-red-700 hover:underline"
-                        >
-                          {item.orderId}
-                        </Link>
+                        />
                       ) : (
                         item.orderId
                       )}
