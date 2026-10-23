@@ -93,7 +93,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
       <Section title="订单设置" description="控制购物车最低下单金额。">
         <div>
           <label htmlFor="minOrderAmount" className="block text-sm font-semibold text-slate-800">
-            最低起送金额（UZS）
+            最低起送金额（som）
           </label>
           <input
             id="minOrderAmount"

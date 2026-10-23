@@ -185,7 +185,15 @@ export async function deleteProductRecord(id: string): Promise<void> {
 
 export async function updateImportedProduct(
   id: string,
-  fields: { price: number; category: string | null; inStock: boolean | null },
+  fields: {
+    price: number;
+    category: string | null;
+    inStock: boolean | null;
+    nameRu?: string | null;
+    nameUz?: string | null;
+    specRu?: string | null;
+    specUz?: string | null;
+  },
 ): Promise<void> {
   const sets = ["price = ?"];
   const params: Array<string | number> = [fields.price];
@@ -196,6 +204,17 @@ export async function updateImportedProduct(
   if (fields.inStock != null) {
     sets.push("in_stock = ?");
     params.push(fields.inStock ? 1 : 0);
+  }
+  const translations: Array<[string, string | null | undefined]> = [
+    ["name_ru", fields.nameRu],
+    ["name_uz", fields.nameUz],
+    ["spec_ru", fields.specRu],
+    ["spec_uz", fields.specUz],
+  ];
+  for (const [column, value] of translations) {
+    if (value == null || value === "") continue;
+    sets.push(`${column} = ?`);
+    params.push(value);
   }
   params.push(id);
   const result = await mysqlExecute(`UPDATE products SET ${sets.join(", ")} WHERE id = ?`, params);

@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
 import { recordAudit } from "@/lib/audit.server";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/categories.server";
 import { isMysqlConfigured } from "@/lib/mysql";
 import { hasCapability } from "@/lib/staff-access";
+import { uploadProductImage } from "@/lib/storage";
 import type { AuditAction } from "@/types/audit";
 import type { AdminSession } from "@/types/staff";
 
@@ -66,9 +68,13 @@ function revalidateCategorySurfaces(slug?: string) {
 
 function mysqlErrorMessage(err: unknown, fallback: string): string {
   const code = typeof err === "object" && err && "code" in err ? String((err as { code?: string }).code) : "";
+  const message = err instanceof Error ? err.message : "";
   if (code === "ER_DUP_ENTRY") return "slug 已存在";
   if (code === "ER_NO_SUCH_TABLE") return categorySchemaHint();
-  return err instanceof Error ? err.message : fallback;
+  if (code === "ER_BAD_FIELD_ERROR" && message.toLowerCase().includes("icon")) {
+    return "分类图标字段尚未建立。请执行 mysql/migrations/20261023_category_icon.sql，或重新执行 mysql/schema.sql。";
+  }
+  return message || fallback;
 }
 
 function switchLabel(before: boolean, after: boolean, label: string): string | null {
@@ -76,13 +82,47 @@ function switchLabel(before: boolean, after: boolean, label: string): string | n
   return `${label} ${before ? "开" : "关"}→${after ? "开" : "关"}`;
 }
 
-function updateSummary(before: { nameZh: string; showOnHome: boolean; enabled: boolean }, input: CategoryInput): string {
+function updateSummary(
+  before: { nameZh: string; showOnHome: boolean; enabled: boolean; icon: string },
+  input: CategoryInput,
+): string {
   const changes = [
     switchLabel(before.showOnHome, input.showOnHome, "首页显示"),
     switchLabel(before.enabled, input.enabled, "启用"),
+    before.icon !== input.icon ? (input.icon ? "更新图标" : "移除图标") : null,
   ].filter((item): item is string => Boolean(item));
   const base = `更新分类「${input.nameZh}」(${input.slug})`;
   return changes.length ? `${base}：${changes.join("，")}` : base;
+}
+
+const ICON_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"]);
+
+export async function uploadCategoryIconAction(formData: FormData) {
+  const { user, error } = await requireProductManager();
+  if (error || !user) return error ?? { ok: false as const, message: "没有商品上架权限" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, message: "请选择图片文件" };
+  }
+
+  const extension = (file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? "").toLowerCase();
+  if (!ICON_EXTENSIONS.has(extension)) {
+    return { ok: false as const, message: "图标只支持 jpg、png、gif、webp、avif、svg" };
+  }
+
+  try {
+    const renamed = new File([await file.arrayBuffer()], `icon-${randomUUID()}${extension}`, {
+      type: file.type || "application/octet-stream",
+    });
+    const url = await uploadProductImage(renamed, "category-icons");
+    return { ok: true as const, url };
+  } catch (err) {
+    return {
+      ok: false as const,
+      message: err instanceof Error ? err.message : "图标上传失败",
+    };
+  }
 }
 
 export async function createCategoryAction(formData: FormData) {

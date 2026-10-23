@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { copyText } from "@/lib/copy-text";
 import { pickLocalized } from "@/lib/store-settings-defaults";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
 
-function CopyButton({
+export function CopyButton({
   text,
   label,
   variant = "light",
@@ -18,22 +19,24 @@ function CopyButton({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
+    const ok = await copyText(text);
+    if (!ok) return;
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <button
       type="button"
       onClick={handleCopy}
+      aria-live="polite"
       className={
         variant === "onDark"
           ? "shrink-0 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
           : "shrink-0 rounded-lg border border-surface-2 bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition hover:border-brand hover:text-brand"
       }
     >
-      {copied ? "✓" : label || t("copy")}
+      {copied ? t("copied") : label || t("copy")}
     </button>
   );
 }
@@ -133,8 +136,8 @@ export function LocationSection() {
             <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
               {t("storeName")}
             </p>
-            <p className="mt-2 font-semibold">{settings.storeName}</p>
-            <div className="mt-3">
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="min-w-0 font-semibold">{settings.storeName}</p>
               <CopyButton text={settings.storeName} label={t("copy")} variant="onDark" />
             </div>
           </div>
@@ -142,8 +145,8 @@ export function LocationSection() {
             <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
               {t("address")}
             </p>
-            <p className="mt-2 font-semibold">{settings.address}</p>
-            <div className="mt-3">
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="min-w-0 font-semibold">{settings.address}</p>
               <CopyButton text={settings.address} label={t("copy")} variant="onDark" />
             </div>
           </div>
@@ -153,22 +156,16 @@ export function LocationSection() {
   );
 }
 
-export function ServicesSection() {
-  const { t } = useLanguage();
+export function StoreIntroSection() {
+  const { locale, t } = useLanguage();
+  const settings = useStoreSettings();
+  const intro = pickLocalized(settings.siteTagline, locale).trim();
+  if (!intro) return null;
 
   return (
     <div className="rounded-2xl border border-surface-2 bg-white p-5 sm:p-6">
-      <h2 className="font-display text-lg font-semibold text-accent">{t("ourServices")}</h2>
-      <div className="mt-4 space-y-3">
-        <div className="rounded-xl border-l-4 border-brand bg-surface p-4">
-          <p className="font-semibold text-ink">{t("personalShopping")}</p>
-          <p className="mt-1 text-sm leading-6 text-muted">{t("personalShoppingDesc")}</p>
-        </div>
-        <div className="rounded-xl border-l-4 border-accent bg-surface p-4">
-          <p className="font-semibold text-ink">{t("delivery")}</p>
-          <p className="mt-1 text-sm leading-6 text-muted">{t("deliveryDesc")}</p>
-        </div>
-      </div>
+      <h2 className="font-display text-lg font-semibold text-accent">{t("storeIntro")}</h2>
+      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-ink">{intro}</p>
     </div>
   );
 }

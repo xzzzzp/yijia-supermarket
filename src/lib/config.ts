@@ -10,5 +10,5 @@ export const STORE_CONFIG = {
   telegram: "yijiasupermarket",
   whatsapp: "998930584275",
   businessHours: { open: 9, close: 1 }, // 09:00 - 01:00 (next day)
-  currency: "UZS",
+  currency: "som",
 } as const;

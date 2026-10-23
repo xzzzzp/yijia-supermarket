@@ -1,4 +1,7 @@
+import { categoryIconError, categoryMark } from "@/lib/category-mark";
 import { CATEGORIES, type CategoryInfo } from "@/types/product";
+
+export { categoryMark };
 
 export interface CategoryInput {
   slug: string;
@@ -6,6 +9,7 @@ export interface CategoryInput {
   nameRu: string;
   nameUz: string;
   description: string;
+  icon: string;
   sortOrder: number;
   showOnHome: boolean;
   enabled: boolean;
@@ -36,6 +40,7 @@ function asCategoryInfo(category: CategoryInfo): CategoryInfo {
     nameRu: category.nameRu,
     nameUz: category.nameUz,
     description: category.description,
+    icon: category.icon,
     sortOrder: category.sortOrder,
     showOnHome: category.showOnHome,
     enabled: category.enabled,
@@ -60,6 +65,7 @@ export function parseCategoryForm(formData: FormData): CategoryInput {
     nameRu: String(formData.get("nameRu") ?? "").trim(),
     nameUz: String(formData.get("nameUz") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
+    icon: String(formData.get("icon") ?? "").trim(),
     sortOrder,
     showOnHome: formData.getAll("showOnHome").includes("1"),
     enabled: formData.getAll("enabled").includes("1"),
@@ -80,6 +86,8 @@ export function validateCategoryInput(input: CategoryInput): string | null {
     return "名称不能超过 255 个字符";
   }
   if (input.description.length > 512) return "描述不能超过 512 个字符";
+  const iconError = categoryIconError(input.icon);
+  if (iconError) return iconError;
   if (!Number.isInteger(input.sortOrder) || input.sortOrder < -1_000_000 || input.sortOrder > 1_000_000) {
     return "排序必须是 -1000000 到 1000000 之间的整数";
   }
@@ -105,6 +113,7 @@ export function toCategoryInfo(input: CategoryInput): CategoryInfo {
     nameRu: input.nameRu,
     nameUz: input.nameUz,
     description: input.description,
+    icon: input.icon,
     sortOrder: input.sortOrder,
     showOnHome: input.showOnHome,
     enabled: input.enabled,

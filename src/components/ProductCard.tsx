@@ -17,11 +17,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-surface-2 bg-white transition hover:border-brand/40 hover:shadow-lg">
-      <div className="relative aspect-square bg-surface">
+      <div className="relative aspect-square overflow-hidden bg-surface">
         <ProductImage
           image={product.image}
           alt={getProductName(locale, product)}
-          className="object-contain p-4 transition group-hover:scale-[1.02]"
+          className="object-cover transition group-hover:scale-[1.02]"
           sizes="(max-width: 640px) 50vw, 25vw"
         />
         {product.isNew && (
@@ -38,7 +38,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {getProductName(locale, product)}
         </Link>
         <p className="mt-1 text-xs text-muted">{getProductSpec(locale, product)}</p>
-        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+        <div className="mt-auto flex flex-col items-start gap-2 pt-3">
           <span className="font-display text-base font-bold text-brand">
             {formatPrice(product.price)}
           </span>

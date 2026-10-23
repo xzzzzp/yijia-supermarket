@@ -11,6 +11,7 @@ import {
   type ImportCatalogCategory,
   type ImportCatalogProduct,
 } from "../src/lib/excel-products.ts";
+import { stableUploadFiles } from "../src/lib/upload-files.ts";
 import { readSpreadsheet } from "../src/lib/excel-workbook.ts";
 
 const categories: ImportCatalogCategory[] = [
@@ -106,6 +107,62 @@ test("duplicate name and spec updates only the earliest product", () => {
     assert.equal(plans[0].productId, "a");
     assert.match(plans[0].warning ?? "", /2 条/);
   }
+});
+
+test("chinese-only sheets still import, and ru/uz columns are optional", () => {
+  const chinese = parseProductSheet([
+    ["名称", "规格", "单价"],
+    ["可乐", "330ml", "8000"],
+  ]);
+  assert.equal(chinese.error, null);
+  assert.equal(chinese.rows[0]?.ok, true);
+  if (chinese.rows[0]?.ok) {
+    assert.equal(chinese.rows[0].name, "可乐");
+    assert.equal(chinese.rows[0].nameRu, null);
+    assert.equal(chinese.rows[0].nameUz, null);
+    assert.equal(chinese.rows[0].specRu, null);
+    assert.equal(chinese.rows[0].specUz, null);
+  }
+
+  const translated = parseProductSheet([
+    ["nameZh", "nameRu", "nameUz", "spec", "specRu", "specUz", "价格", "分类"],
+    ["可乐", "Кола", "Kola", "330ml", "330 мл", "330 ml", "9000", "饮料"],
+    ["雪碧", "", "", "500ml", "", "", "7000", "饮料"],
+  ]);
+  assert.equal(translated.error, null);
+  assert.equal(translated.rows[0]?.ok, true);
+  if (translated.rows[0]?.ok) {
+    assert.equal(translated.rows[0].nameRu, "Кола");
+    assert.equal(translated.rows[0].nameUz, "Kola");
+    assert.equal(translated.rows[0].specRu, "330 мл");
+    assert.equal(translated.rows[0].specUz, "330 ml");
+  }
+  assert.equal(translated.rows[1]?.ok, true);
+  if (translated.rows[1]?.ok) {
+    assert.equal(translated.rows[1].name, "雪碧");
+    assert.equal(translated.rows[1].nameRu, null);
+    assert.equal(translated.rows[1].specUz, null);
+  }
+
+  const plans = planProductImport(translated.rows, [], categories);
+  assert.equal(plans[0]?.kind, "create");
+  if (plans[0]?.kind === "create") {
+    assert.equal(plans[0].nameRu, "Кола");
+    assert.equal(plans[0].specUz, "330 ml");
+  }
+  if (plans[1]?.kind === "create") assert.equal(plans[1].nameUz, null);
+});
+
+test("multi-select uploads keep a stable filename order", () => {
+  const sorted = stableUploadFiles([
+    { name: "b.jpg", size: 2, lastModified: 1 },
+    { name: "a.jpg", size: 9, lastModified: 3 },
+    { name: "b.jpg", size: 1, lastModified: 8 },
+  ]);
+  assert.deepEqual(
+    sorted.map((file) => `${file.name}:${file.size}`),
+    ["a.jpg:9", "b.jpg:1", "b.jpg:2"],
+  );
 });
 
 test("image filename matches name plus spec with whitespace ignored", () => {

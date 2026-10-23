@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { stableUploadFiles } from "@/lib/upload-files";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -319,17 +320,37 @@ export async function batchImportImages(formData: FormData) {
 
   const category = String(formData.get("category") ?? "");
   const autoMatch = formData.get("autoMatch") === "on";
-  const files = formData.getAll("files") as File[];
+  const entries = formData.getAll("files");
+  const files = stableUploadFiles(entries.filter((file): file is File => file instanceof File));
 
-  if (!files.length) {
+  if (!entries.length) {
     return { ok: false as const, message: "请选择至少一张图片", results: [] };
   }
+  if (!files.length) {
+    return { ok: false as const, message: "无法读取所选文件，请重新选择后再试", results: [] };
+  }
 
-  const products = await fetchAllProducts();
+  let products;
+  try {
+    products = await fetchAllProducts();
+  } catch (err) {
+    return {
+      ok: false as const,
+      message: err instanceof Error && err.message ? err.message : "读取商品失败，图片没有上传",
+      results: [],
+    };
+  }
   const results: BatchImportResult[] = [];
 
   for (const file of files) {
-    if (!(file instanceof File) || file.size === 0) continue;
+    if (file.size === 0) {
+      results.push({
+        filename: file.name || "未命名文件",
+        status: "error",
+        message: "文件是空的，没有上传",
+      });
+      continue;
+    }
 
     const cat = category || "misc";
 
@@ -394,6 +415,22 @@ export async function batchImportImages(formData: FormData) {
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"]);
 
+function updatedImportMessage(plan: {
+  category: string | null;
+  inStock: boolean | null;
+  nameRu: string | null;
+  nameUz: string | null;
+  specRu: string | null;
+  specUz: string | null;
+}): string {
+  const parts = ["单价"];
+  if (plan.category) parts.push("分类");
+  if (plan.inStock != null) parts.push("库存");
+  if (plan.nameRu || plan.nameUz) parts.push("外语名称");
+  if (plan.specRu || plan.specUz) parts.push("外语规格");
+  return `已更新${parts.join("、")}`;
+}
+
 export async function importProductsFromExcel(formData: FormData) {
   const gate = await ensureProductWriter();
   if (!gate.ok) return { ...gate, rows: [] as ExcelImportRowResult[] };
@@ -403,7 +440,23 @@ export async function importProductsFromExcel(formData: FormData) {
     return { ok: false as const, message: "请选择 Excel 或 CSV 文件", rows: [] as ExcelImportRowResult[] };
   }
 
-  const spreadsheet = readSpreadsheet(new Uint8Array(await file.arrayBuffer()), file.name);
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch {
+    return { ok: false as const, message: "无法读取所选文件，请重新选择后再导入", rows: [] as ExcelImportRowResult[] };
+  }
+
+  let spreadsheet: ReturnType<typeof readSpreadsheet>;
+  try {
+    spreadsheet = readSpreadsheet(bytes, file.name || "商品.xlsx");
+  } catch {
+    return {
+      ok: false as const,
+      message: "无法读取这个表格。请确认是 xlsx 或 csv，且文件没有损坏。",
+      rows: [] as ExcelImportRowResult[],
+    };
+  }
   if ("error" in spreadsheet) {
     return { ok: false as const, message: spreadsheet.error, rows: [] as ExcelImportRowResult[] };
   }
@@ -413,7 +466,17 @@ export async function importProductsFromExcel(formData: FormData) {
     return { ok: false as const, message: parsed.error, rows: [] as ExcelImportRowResult[] };
   }
 
-  const [products, directory] = await Promise.all([fetchAllProducts(), listCategories()]);
+  let products;
+  let directory;
+  try {
+    [products, directory] = await Promise.all([fetchAllProducts(), listCategories()]);
+  } catch (err) {
+    return {
+      ok: false as const,
+      message: err instanceof Error && err.message ? err.message : "读取商品或分类失败，没有写入",
+      rows: [] as ExcelImportRowResult[],
+    };
+  }
   const plans = planProductImport(
     parsed.rows,
     products.map((product) => ({
@@ -447,11 +510,11 @@ export async function importProductsFromExcel(formData: FormData) {
         const id = await insertProduct({
           sourceKey: `excel-${randomUUID().replace(/-/g, "")}`,
           name: plan.name,
-          nameRu: "",
-          nameUz: "",
+          nameRu: plan.nameRu ?? "",
+          nameUz: plan.nameUz ?? "",
           spec: plan.spec,
-          specRu: "",
-          specUz: "",
+          specRu: plan.specRu ?? "",
+          specUz: plan.specUz ?? "",
           image: PLACEHOLDER_IMAGE,
           price: plan.price,
           inStock: plan.inStock,
@@ -490,13 +553,17 @@ export async function importProductsFromExcel(formData: FormData) {
         price: plan.price,
         category: plan.category,
         inStock: plan.inStock,
+        nameRu: plan.nameRu,
+        nameUz: plan.nameUz,
+        specRu: plan.specRu,
+        specUz: plan.specUz,
       });
       rows.push({
         rowNumber: plan.rowNumber,
         name: plan.name,
         spec: plan.spec,
         status: "updated",
-        message: plan.warning ?? "已更新单价" + (plan.category ? "、分类" : "") + (plan.inStock != null ? "、库存" : ""),
+        message: plan.warning ?? updatedImportMessage(plan),
       });
     } catch (err) {
       rows.push({
@@ -532,17 +599,37 @@ export async function importImagesByNameSpec(formData: FormData) {
   const gate = await ensureProductWriter();
   if (!gate.ok) return { ...gate, results: [] as BatchImportResult[] };
 
-  const files = formData
-    .getAll("files")
-    .filter((file): file is File => file instanceof File && file.size > 0);
-  if (!files.length) {
+  const entries = formData.getAll("files");
+  const files = stableUploadFiles(entries.filter((file): file is File => file instanceof File));
+  if (!entries.length) {
     return { ok: false as const, message: "请选择至少一张图片", results: [] as BatchImportResult[] };
   }
+  if (!files.length) {
+    return { ok: false as const, message: "无法读取所选文件，请重新选择后再试", results: [] as BatchImportResult[] };
+  }
 
-  const products = await fetchAllProducts();
+  let products;
+  try {
+    products = await fetchAllProducts();
+  } catch (err) {
+    return {
+      ok: false as const,
+      message: err instanceof Error && err.message ? err.message : "读取商品失败，主图没有写入",
+      results: [] as BatchImportResult[],
+    };
+  }
   const results: BatchImportResult[] = [];
+  const primaryByProduct = new Map<string, string>();
 
   for (const file of files) {
+    if (file.size === 0) {
+      results.push({
+        filename: file.name || "未命名文件",
+        status: "error",
+        message: "文件是空的，没有写入",
+      });
+      continue;
+    }
     const matches = products.filter((product) => nameSpecImageKey(product.name, product.spec) === fileImageKey(file.name));
     if (!matches.length) {
       results.push({
@@ -569,15 +656,23 @@ export async function importImagesByNameSpec(formData: FormData) {
         type: file.type || "application/octet-stream",
       });
       const imageUrl = await uploadProductImage(renamed, matches[0]?.category || "misc");
+      const replaced = new Set<string>();
       for (const product of matches) {
+        const previous = primaryByProduct.get(product.id);
+        if (previous && previous !== file.name) replaced.add(previous);
+        primaryByProduct.set(product.id, file.name);
         await updateProductImage(product.id, imageUrl);
       }
+      const baseMessage = matches.length > 1 ? `已设为 ${matches.length} 个同名同规格商品的主图` : "已设为主图";
+      const replacedNames = [...replaced];
       results.push({
         filename: file.name,
         status: "matched",
         productName: matches.map((product) => `${product.name}${product.spec}`).join("、"),
         imageUrl,
-        message: matches.length > 1 ? `已设为 ${matches.length} 个同名同规格商品的主图` : "已设为主图",
+        message: replacedNames.length
+          ? `${baseMessage}。按文件名排序，替换了本次导入中的「${replacedNames.join("、")}」`
+          : baseMessage,
       });
     } catch (err) {
       results.push({

@@ -15,17 +15,35 @@ import type { CategoryInfo } from "@/types/product";
 const SCHEMA_HINT =
   "分类表尚未建立。请在 MySQL 中执行 mysql/migrations/20261018_product_categories.sql，或重新执行 mysql/schema.sql。";
 
+const ICON_COLUMN_HINT =
+  "分类表还没有图标字段。请执行 mysql/migrations/20261023_category_icon.sql，或重新执行 mysql/schema.sql。";
+
 interface CategoryRow extends RowDataPacket {
   slug: string;
   name_zh: string;
   name_ru: string;
   name_uz: string;
   description: string;
+  icon?: string;
   sort_order: number;
   show_on_home: number;
   enabled: number;
   product_count?: number;
 }
+
+const CATEGORY_SQL_WITH_ICON = `SELECT
+         c.slug, c.name_zh, c.name_ru, c.name_uz, c.description, c.icon,
+         c.sort_order, c.show_on_home, c.enabled,
+         (SELECT COUNT(*) FROM products p WHERE p.category = c.slug) AS product_count
+       FROM product_categories c
+       ORDER BY c.sort_order ASC, c.slug ASC`;
+
+const CATEGORY_SQL_NO_ICON = `SELECT
+         c.slug, c.name_zh, c.name_ru, c.name_uz, c.description,
+         c.sort_order, c.show_on_home, c.enabled,
+         (SELECT COUNT(*) FROM products p WHERE p.category = c.slug) AS product_count
+       FROM product_categories c
+       ORDER BY c.sort_order ASC, c.slug ASC`;
 
 export interface CategoryDirectory {
   categories: AdminCategory[];
@@ -37,6 +55,13 @@ function isMissingTable(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: string }).code === "ER_NO_SUCH_TABLE";
 }
 
+function isMissingColumn(err: unknown, column: string): boolean {
+  if (typeof err !== "object" || err === null || !("code" in err)) return false;
+  if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") return false;
+  const message = "message" in err ? String((err as { message?: unknown }).message) : "";
+  return message.toLowerCase().includes(column.toLowerCase());
+}
+
 function mapRow(row: CategoryRow): CategoryInfo {
   return {
     slug: row.slug,
@@ -45,6 +70,7 @@ function mapRow(row: CategoryRow): CategoryInfo {
     nameRu: row.name_ru,
     nameUz: row.name_uz,
     description: row.description ?? "",
+    icon: typeof row.icon === "string" ? row.icon : "",
     sortOrder: Number(row.sort_order) || 0,
     showOnHome: Boolean(row.show_on_home),
     enabled: Boolean(row.enabled),
@@ -64,20 +90,22 @@ export async function listCategories(): Promise<CategoryDirectory> {
   }
 
   try {
-    const rows = await mysqlQuery<CategoryRow[]>(
-      `SELECT
-         c.slug, c.name_zh, c.name_ru, c.name_uz, c.description,
-         c.sort_order, c.show_on_home, c.enabled,
-         (SELECT COUNT(*) FROM products p WHERE p.category = c.slug) AS product_count
-       FROM product_categories c
-       ORDER BY c.sort_order ASC, c.slug ASC`,
-    );
+    let warning: string | undefined;
+    let rows: CategoryRow[];
+    try {
+      rows = await mysqlQuery<CategoryRow[]>(CATEGORY_SQL_WITH_ICON);
+    } catch (err) {
+      if (!isMissingColumn(err, "icon")) throw err;
+      rows = await mysqlQuery<CategoryRow[]>(CATEGORY_SQL_NO_ICON);
+      warning = ICON_COLUMN_HINT;
+    }
     return {
       categories: rows.map((row) => ({
         ...mapRow(row),
         productCount: Number(row.product_count) || 0,
       })),
       source: "mysql",
+      warning,
     };
   } catch (err) {
     if (isMissingTable(err)) {
@@ -109,14 +137,15 @@ export async function insertCategory(input: CategoryInput): Promise<void> {
   const category = toCategoryInfo(input);
   await mysqlExecute(
     `INSERT INTO product_categories (
-       slug, name_zh, name_ru, name_uz, description, sort_order, show_on_home, enabled
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       slug, name_zh, name_ru, name_uz, description, icon, sort_order, show_on_home, enabled
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       category.slug,
       category.nameZh,
       category.nameRu,
       category.nameUz,
       category.description,
+      category.icon,
       category.sortOrder,
       category.showOnHome ? 1 : 0,
       category.enabled ? 1 : 0,
@@ -138,7 +167,7 @@ export async function updateCategoryRecord(input: CategoryInput): Promise<void> 
 
   await mysqlExecute(
     `UPDATE product_categories SET
-       name_zh = ?, name_ru = ?, name_uz = ?, description = ?,
+       name_zh = ?, name_ru = ?, name_uz = ?, description = ?, icon = ?,
        sort_order = ?, show_on_home = ?, enabled = ?
      WHERE slug = ?`,
     [
@@ -146,6 +175,7 @@ export async function updateCategoryRecord(input: CategoryInput): Promise<void> 
       input.nameRu,
       input.nameUz,
       input.description,
+      input.icon,
       input.sortOrder,
       input.showOnHome ? 1 : 0,
       input.enabled ? 1 : 0,

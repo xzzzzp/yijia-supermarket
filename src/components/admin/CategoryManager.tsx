@@ -1,12 +1,15 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   createCategoryAction,
   deleteCategoryAction,
   updateCategoryAction,
+  uploadCategoryIconAction,
 } from "@/app/admin/category-actions";
+import { productImageSrc } from "@/lib/assets";
 import { categoryRemovalMessage, type AdminCategory } from "@/lib/categories";
 
 interface CategoryManagerProps {
@@ -22,6 +25,7 @@ interface Draft {
   nameRu: string;
   nameUz: string;
   description: string;
+  icon: string;
   sortOrder: string;
   showOnHome: boolean;
   enabled: boolean;
@@ -35,6 +39,7 @@ function emptyDraft(): Draft {
     nameRu: "",
     nameUz: "",
     description: "",
+    icon: "",
     sortOrder: "0",
     showOnHome: true,
     enabled: true,
@@ -49,6 +54,7 @@ function draftFrom(category: AdminCategory): Draft {
     nameRu: category.nameRu,
     nameUz: category.nameUz,
     description: category.description,
+    icon: category.icon,
     sortOrder: String(category.sortOrder),
     showOnHome: category.showOnHome,
     enabled: category.enabled,
@@ -60,7 +66,32 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [message, setMessage] = useState("");
   const [messageOk, setMessageOk] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleIcon = async (file: File) => {
+    setUploading(true);
+    const data = new FormData();
+    data.append("file", file);
+    try {
+      const result = await uploadCategoryIconAction(data);
+      if (result.ok) {
+        setDraft((current) => ({ ...current, icon: result.url }));
+        setMessage("图标已上传。保存分类后，首页热门分类才会换成这张图。");
+        setMessageOk(true);
+      } else {
+        setMessage(result.message || "图标上传失败");
+        setMessageOk(false);
+      }
+    } catch {
+      setMessage("图标上传失败。请换一张 jpg、png、webp 图片后重试。");
+      setMessageOk(false);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const showResult = (result: { ok: boolean; message: string }, reset: boolean) => {
     setMessage(result.message);
@@ -211,6 +242,57 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
             className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-red-500"
           />
         </label>
+        <div className="flex flex-wrap items-center gap-4">
+          {draft.icon ? (
+            <Image
+              src={productImageSrc(draft.icon)}
+              alt=""
+              width={56}
+              height={56}
+              unoptimized
+              className="h-14 w-14 rounded-xl object-cover"
+            />
+          ) : (
+            <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-orange-100 text-lg font-bold text-orange-800">
+              {(draft.nameZh.trim().charAt(0) || "类").toUpperCase()}
+            </span>
+          )}
+          <div>
+            <input type="hidden" name="icon" value={draft.icon} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleIcon(file);
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={uploading || pending}
+                onClick={() => fileRef.current?.click()}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50 disabled:opacity-50"
+              >
+                {uploading ? "上传中…" : "选择文件"}
+              </button>
+              {draft.icon && (
+                <button
+                  type="button"
+                  onClick={() => setDraft({ ...draft, icon: "" })}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  移除图标
+                </button>
+              )}
+            </div>
+            <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">
+              首页热门分类优先显示图标。不上传时显示名称首字母色块。选好图片后还需要保存分类。
+            </p>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-6 text-sm text-slate-700">
           <label className="flex items-center gap-2">
             <input type="hidden" name="showOnHome" value="0" />
@@ -277,11 +359,29 @@ export function CategoryManager({ categories, source, warning }: CategoryManager
                   <td className="px-4 py-3">{category.sortOrder}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-500">{category.slug}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium">{category.nameZh}</p>
-                    <p className="text-xs text-slate-500">
-                      {category.nameRu} / {category.nameUz}
-                    </p>
-                    {category.description && <p className="text-xs text-slate-400">{category.description}</p>}
+                    <div className="flex items-center gap-3">
+                      {category.icon ? (
+                        <Image
+                          src={productImageSrc(category.icon)}
+                          alt=""
+                          width={40}
+                          height={40}
+                          unoptimized
+                          className="h-10 w-10 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">
+                          {category.nameZh.charAt(0)}
+                        </span>
+                      )}
+                      <div>
+                        <p className="font-medium">{category.nameZh}</p>
+                        <p className="text-xs text-slate-500">
+                          {category.nameRu} / {category.nameUz}
+                        </p>
+                        {category.description && <p className="text-xs text-slate-400">{category.description}</p>}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3">{category.productCount}</td>
                   <td className="px-4 py-3">{category.showOnHome ? "显示" : "隐藏"}</td>

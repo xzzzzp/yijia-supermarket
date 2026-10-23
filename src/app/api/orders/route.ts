@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatPrice } from "@/lib/products";
 import { fetchProducts } from "@/lib/products.server";
 import { saveOrderRecord } from "@/lib/orders.server";
 import { fetchStoreSettings } from "@/lib/settings.server";
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: `订单金额未达到最低起送 ${settings.minOrderAmount.toLocaleString("ru-RU")} UZS。`,
+          message: `订单金额未达到最低起送 ${formatPrice(settings.minOrderAmount)}。`,
         },
         { status: 400 },
       );

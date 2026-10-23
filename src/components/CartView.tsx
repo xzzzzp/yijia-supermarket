@@ -18,6 +18,7 @@ import {
   getProductName,
   getProductSpec,
 } from "@/lib/i18n";
+import { MinOrderHint } from "@/components/MinOrderHint";
 import { ProductImage } from "@/components/ProductImage";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
@@ -152,6 +153,7 @@ export function CartView({ minOrderAmount: minOrderAmountProp }: CartViewProps) 
   return (
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-semibold text-accent">{t("cartTitle")}</h1>
+      <MinOrderHint />
       {!ready ? (
         <div className="rounded-2xl border border-surface-2 bg-white p-10 text-center text-sm text-muted">...</div>
       ) : !enriched.length ? (
