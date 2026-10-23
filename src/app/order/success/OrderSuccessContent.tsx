@@ -2,39 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CopyButton } from "@/components/ContactSection";
+import { copyText } from "@/lib/copy-text";
 import { getTelegramShareUrl } from "@/lib/orders";
+import { pickLocalized } from "@/lib/store-settings-defaults";
 import type { OrderChannel } from "@/types/order";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
-
-async function copyText(value: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
-      await navigator.clipboard.writeText(value);
-      return true;
-    }
-  } catch {
-    // HTTP 站点上 Clipboard API 会失败，改用选区复制。
-  }
-
-  try {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.left = "-9999px";
-    textarea.style.top = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-    const ok = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return ok;
-  } catch {
-    return false;
-  }
-}
 
 export default function OrderSuccessContent({
   orderId,
@@ -46,10 +20,11 @@ export default function OrderSuccessContent({
   orderText: string;
 }) {
   const settings = useStoreSettings();
-  const { t } = useLanguage();
+  const { locale, t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const isWechat = channel === "wechat";
   const isTelegram = channel === "telegram";
+  const intro = pickLocalized(settings.siteTagline, locale).trim();
 
   const shareText = [orderText.trim(), orderId ? `订单号: ${orderId}` : ""]
     .filter(Boolean)
@@ -74,12 +49,13 @@ export default function OrderSuccessContent({
     <main className="flex min-h-[70vh] items-center justify-center bg-surface px-5 py-10">
       <div className="w-full max-w-lg rounded-2xl border border-surface-2 bg-white p-8 text-center">
         <p className="text-4xl">✅</p>
-        <h1 className="font-display mt-4 text-2xl font-semibold text-accent">订单已生成</h1>
-        <p className="mt-1 text-sm text-muted">Заказ создан</p>
+        <h1 className="font-display mt-4 text-xl font-semibold leading-7 text-accent sm:text-2xl">
+          {t("orderSaveHint")}
+        </h1>
 
         {orderId && (
           <p className="mt-4 text-sm text-ink">
-            订单号{" "}
+            {t("orderNumber")}{" "}
             <code className="rounded bg-surface px-2 py-1 font-mono text-sm font-semibold">
               {orderId}
             </code>
@@ -107,7 +83,7 @@ export default function OrderSuccessContent({
               onClick={handleCopy}
               className="w-full rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-white hover:bg-brand-dark"
             >
-              {copied ? "已复制 ✓" : "复制订单内容"}
+              {copied ? t("copied") : t("copyOrder")}
             </button>
           )}
 
@@ -122,11 +98,25 @@ export default function OrderSuccessContent({
             </a>
           )}
 
-          {isWechat && settings.wechat && (
-            <p className="rounded-lg border border-surface-2 px-4 py-3 text-sm text-ink">
-              微信：<strong>{settings.wechat}</strong>
-            </p>
+          {intro && (
+            <div className="rounded-xl border border-surface-2 px-4 py-3 text-left">
+              <p className="text-xs font-medium text-muted">{t("storeIntro")}</p>
+              <p className="mt-1 whitespace-pre-line text-sm leading-6 text-ink">{intro}</p>
+            </div>
           )}
+
+          <div className="space-y-2 text-left">
+            {settings.phone && (
+              <CopyRow label={t("phone")} value={settings.phoneDisplay || settings.phone} copyValue={settings.phone} />
+            )}
+            {settings.wechat && <CopyRow label="WeChat" value={settings.wechat} copyValue={settings.wechat} />}
+            {settings.storeName && (
+              <CopyRow label={t("storeName")} value={settings.storeName} copyValue={settings.storeName} />
+            )}
+            {settings.address && (
+              <CopyRow label={t("address")} value={settings.address} copyValue={settings.address} />
+            )}
+          </div>
 
           <Link
             href={orderId ? `/orders?id=${encodeURIComponent(orderId)}` : "/orders"}
@@ -140,5 +130,27 @@ export default function OrderSuccessContent({
         </div>
       </div>
     </main>
+  );
+}
+
+function CopyRow({
+  label,
+  value,
+  copyValue,
+}: {
+  label: string;
+  value: string;
+  copyValue: string;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="rounded-xl bg-surface px-4 py-3">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <p className="min-w-0 text-sm font-semibold break-all text-ink">{value}</p>
+        <CopyButton text={copyValue} label={t("copy")} />
+      </div>
+    </div>
   );
 }

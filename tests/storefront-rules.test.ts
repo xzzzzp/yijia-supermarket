@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { categoryIconError, categoryMark } from "../src/lib/category-mark.ts";
+import { LOCALES, formatMinOrderHint, t } from "../src/lib/i18n.ts";
 import { validateCustomerContact } from "../src/lib/order-contact.ts";
+import { formatPrice } from "../src/lib/price.ts";
 import {
   isLookupRateLimited,
   lookupOrders,
@@ -99,6 +102,32 @@ test("checkout contact fields are required and the note may be empty", () => {
     validateCustomerContact({ customerName: "阿强", customerPhone: "99890", customerAddress: "塔什干", note: "" }),
     null,
   );
+});
+
+test("category icon wins and a blank icon falls back to the first letter", () => {
+  assert.deepEqual(categoryMark("饮料", ""), { kind: "letter", letter: "饮" });
+  assert.deepEqual(categoryMark(" 零食 ", "  "), { kind: "letter", letter: "零" });
+  assert.deepEqual(categoryMark("饮料", "/products/category-icons/icon-1.png"), {
+    kind: "icon",
+    src: "/products/category-icons/icon-1.png",
+  });
+  assert.equal(categoryIconError(""), null);
+  assert.equal(categoryIconError("https://example.com/a.png"), "分类图标地址无效");
+  assert.equal(categoryIconError("/products/category-icons/icon.png"), null);
+});
+
+test("language buttons use full names and customer prices say som", () => {
+  assert.deepEqual(
+    LOCALES.map((item) => item.label),
+    ["Русский", "O\u02BBbekcha", "中文"],
+  );
+  assert.equal(LOCALES.some((item) => item.label === "ZH" || item.short === "ZH"), false);
+  assert.equal(t("zh", "orderSaveHint"), "订单已提交，请复制或截图保存订单信息");
+  assert.equal(t("zh", "copied"), "已复制");
+  assert.match(formatMinOrderHint("zh", 15000), /som/);
+  assert.doesNotMatch(formatMinOrderHint("ru", 15000), /UZS/);
+  assert.match(formatPrice(8000), /som$/);
+  assert.doesNotMatch(formatPrice(8000), /UZS/);
 });
 
 test("storefront tabs stay on the four entry points", () => {

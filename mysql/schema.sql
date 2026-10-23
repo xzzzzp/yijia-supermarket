@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS product_categories (
   name_ru VARCHAR(255) NOT NULL,
   name_uz VARCHAR(255) NOT NULL,
   description VARCHAR(512) NOT NULL DEFAULT '',
+  icon VARCHAR(512) NOT NULL DEFAULT '',
   sort_order INT NOT NULL DEFAULT 0,
   show_on_home TINYINT(1) NOT NULL DEFAULT 1,
   enabled TINYINT(1) NOT NULL DEFAULT 1,

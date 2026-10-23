@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { categoriesForProductForm } from "@/lib/categories";
+import { stableUploadFiles } from "@/lib/upload-files";
 import type { CategoryInfo } from "@/types/product";
 import { batchImportImages } from "@/app/admin/actions";
 import { PRODUCT_IMAGE_UPLOAD_HINT } from "@/lib/product-image-hint";
@@ -13,20 +14,34 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
   const [autoMatch, setAutoMatch] = useState(true);
   const [results, setResults] = useState<BatchImportResult[]>([]);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"info" | "error">("info");
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const processFiles = (files: FileList | File[]) => {
+  const processFiles = (list: FileList | File[]) => {
+    const files = stableUploadFiles(Array.from(list));
+    if (fileRef.current) fileRef.current.value = "";
+    if (!files.length) {
+      setMessageTone("error");
+      setMessage("请选择至少一张图片");
+      return;
+    }
     const formData = new FormData();
     formData.append("category", category);
     if (autoMatch) formData.append("autoMatch", "on");
-    Array.from(files).forEach((f) => formData.append("files", f));
+    files.forEach((file) => formData.append("files", file));
 
     startTransition(async () => {
-      const result = await batchImportImages(formData);
-      setMessage(result.message ?? "");
-      if (result.results) setResults(result.results);
+      try {
+        const result = await batchImportImages(formData);
+        setMessageTone(result.ok ? "info" : "error");
+        setMessage(result.message ?? (result.ok ? "上传完成" : "上传失败"));
+        if (result.results) setResults(result.results);
+      } catch {
+        setMessageTone("error");
+        setMessage("上传失败。请确认图片格式后重试。");
+      }
     });
   };
 
@@ -92,10 +107,18 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
           onClick={() => fileRef.current?.click()}
         >
           <p className="text-3xl">📁</p>
-          <p className="mt-2 text-sm font-semibold text-slate-700">
-            拖拽图片到此处，或点击选择文件
-          </p>
-          <p className="mt-1 text-xs text-slate-500">支持 PNG、JPG、WEBP，可多选</p>
+          <p className="mt-2 text-sm font-semibold text-slate-700">拖拽图片到此处</p>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              fileRef.current?.click();
+            }}
+            className="mt-3 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50"
+          >
+            选择文件
+          </button>
+          <p className="mt-2 text-xs text-slate-500">支持 PNG、JPG、WEBP，可多选。多张图片按文件名排序后上传。</p>
           <p className="mt-1 max-w-md text-center text-xs leading-5 text-slate-500">
             {PRODUCT_IMAGE_UPLOAD_HINT}
           </p>
@@ -115,7 +138,11 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
           <p className="mt-4 text-sm text-slate-600">正在上传并匹配，请稍候…</p>
         )}
         {message && (
-          <p className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <p
+            className={`mt-4 rounded-xl px-4 py-3 text-sm ${
+              messageTone === "error" ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-800"
+            }`}
+          >
             {message}
           </p>
         )}
@@ -133,8 +160,8 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
               </tr>
             </thead>
             <tbody>
-              {results.map((r) => (
-                <tr key={r.filename} className="border-b border-slate-50 last:border-b-0">
+              {results.map((r, index) => (
+                <tr key={`${r.filename}-${index}`} className="border-b border-slate-50 last:border-b-0">
                   <td className="px-4 py-3 font-mono text-xs">{r.filename}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={r.status} />

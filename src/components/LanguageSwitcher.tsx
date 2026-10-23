@@ -28,13 +28,12 @@ export function LanguageSwitcher() {
         aria-expanded={open}
         aria-label="Language"
         onClick={() => setOpen(!open)}
-        className="inline-flex min-h-9 items-center gap-1 rounded-full border border-surface-2 bg-white px-3 text-xs font-semibold text-accent transition hover:border-brand sm:text-sm"
+        className="inline-flex min-h-9 items-center whitespace-nowrap rounded-full border border-surface-2 bg-white px-3 text-xs font-semibold text-accent transition hover:border-brand sm:text-sm"
       >
-        <span className="sm:hidden">{current.short}</span>
-        <span className="hidden sm:inline">{current.label}</span>
+        {current.label}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-40 overflow-hidden rounded-xl border border-surface-2 bg-white shadow-lg">
+        <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-surface-2 bg-white shadow-lg">
           {LOCALES.map((l) => (
             <button
               key={l.code}

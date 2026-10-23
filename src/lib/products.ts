@@ -1,5 +1,8 @@
 import type { Product, ProductCategory } from "@/types/product";
 import { getCategoryInfo } from "@/types/product";
+import { formatPrice as formatCustomerPrice } from "@/lib/price";
+
+export { formatCustomerPrice as formatPrice };
 
 export {
   HOME_NEW_PRODUCT_LIMIT,
@@ -160,10 +163,6 @@ export function searchProducts(products: Product[], query: string): Product[] {
         .toLowerCase()
         .includes(q),
   );
-}
-
-export function formatPrice(price: number): string {
-  return `${price.toLocaleString("ru-RU")} UZS`;
 }
 
 function finiteRecommendSort(value: unknown): number {

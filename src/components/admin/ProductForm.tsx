@@ -170,7 +170,7 @@ export function ProductForm({ product, mode, categories }: ProductFormProps) {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Field
-              label="价格 (UZS) *"
+              label="价格 (som) *"
               name="price"
               type="number"
               defaultValue={String(values.price)}

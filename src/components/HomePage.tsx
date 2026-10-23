@@ -5,10 +5,11 @@ import { BusinessHours } from "@/components/BusinessHours";
 import { SearchBar } from "@/components/SearchBar";
 import { NewProductsCarousel } from "@/components/NewProductsCarousel";
 import { CategoryGrid } from "@/components/CategoryGrid";
+import { MinOrderHint } from "@/components/MinOrderHint";
 import {
   ContactSection,
   LocationSection,
-  ServicesSection,
+  StoreIntroSection,
 } from "@/components/ContactSection";
 
 export function HomePage({
@@ -32,6 +33,7 @@ export function HomePage({
         <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-5 sm:px-6 lg:py-8">
           <SearchBar variant="hero" />
           <BusinessHours />
+          <MinOrderHint />
         </div>
       </section>
 
@@ -40,7 +42,7 @@ export function HomePage({
 
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-6">
         <div className="grid gap-6 lg:grid-cols-2">
-          <ServicesSection />
+          <StoreIntroSection />
           <ContactSection />
         </div>
       </div>

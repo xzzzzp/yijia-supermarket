@@ -3,9 +3,9 @@ import type { OrderStatus } from "@/types/order";
 export type Locale = "ru" | "uz" | "zh";
 
 export const LOCALES: { code: Locale; label: string; short: string }[] = [
-  { code: "ru", label: "Русский", short: "RU" },
-  { code: "uz", label: "O'zbek", short: "UZ" },
-  { code: "zh", label: "中文", short: "ZH" },
+  { code: "ru", label: "Русский", short: "Русский" },
+  { code: "uz", label: "O\u02BBbekcha", short: "O\u02BBbekcha" },
+  { code: "zh", label: "中文", short: "中文" },
 ];
 
 type TranslationKey =
@@ -22,11 +22,6 @@ type TranslationKey =
   | "newProducts"
   | "viewAll"
   | "popularCategories"
-  | "ourServices"
-  | "personalShopping"
-  | "personalShoppingDesc"
-  | "delivery"
-  | "deliveryDesc"
   | "contactUs"
   | "contactDesc"
   | "phone"
@@ -51,6 +46,9 @@ type TranslationKey =
   | "customerAddress"
   | "note"
   | "orderSuccess"
+  | "orderSaveHint"
+  | "copyOrder"
+  | "storeIntro"
   | "noProducts"
   | "sortBy"
   | "sortDefault"
@@ -101,11 +99,6 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     newProducts: "Новинки",
     viewAll: "Смотреть все →",
     popularCategories: "Популярные категории",
-    ourServices: "Наши услуги",
-    personalShopping: "Покупки по поручению",
-    personalShoppingDesc: "Поможем купить нужные товары в пределах Ташкента.",
-    delivery: "Доставка по Ташкенту",
-    deliveryDesc: "Закажите товары магазина с доставкой по Ташкенту.",
     contactUs: "Связаться с нами",
     contactDesc: "По вопросам о товарах, доставке или заказах свяжитесь с нами удобным способом.",
     phone: "Телефон",
@@ -130,6 +123,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerAddress: "Адрес доставки",
     note: "Комментарий",
     orderSuccess: "Заказ отправлен",
+    orderSaveHint: "Заказ отправлен. Скопируйте текст или сделайте скриншот, чтобы сохранить информацию о заказе.",
+    copyOrder: "Скопировать заказ",
+    storeIntro: "О магазине",
     noProducts: "Товары не найдены",
     sortBy: "Сортировка",
     sortDefault: "По умолчанию",
@@ -179,11 +175,6 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     newProducts: "Yangi mahsulotlar",
     viewAll: "Hammasini ko'rish →",
     popularCategories: "Mashhur toifalar",
-    ourServices: "Xizmatlarimiz",
-    personalShopping: "Buyurtma bo'yicha xarid",
-    personalShoppingDesc: "Toshkent ichida kerakli mahsulotlarni sotib olishda yordam beramiz.",
-    delivery: "Toshkent bo'ylab yetkazib berish",
-    deliveryDesc: "Do'kon mahsulotlarini Toshkent bo'ylab yetkazib berish bilan buyurtma qiling.",
     contactUs: "Biz bilan bog'laning",
     contactDesc: "Mahsulotlar, yetkazib berish yoki buyurtmalar bo'yicha biz bilan bog'laning.",
     phone: "Telefon",
@@ -208,6 +199,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerAddress: "Yetkazib berish manzili",
     note: "Izoh",
     orderSuccess: "Buyurtma yuborildi",
+    orderSaveHint: "Buyurtma yuborildi. Buyurtma ma’lumotini saqlash uchun nusxa oling yoki skrinshot qiling.",
+    copyOrder: "Buyurtmani nusxalash",
+    storeIntro: "Do‘kon haqida",
     noProducts: "Mahsulot topilmadi",
     sortBy: "Saralash",
     sortDefault: "Standart",
@@ -257,11 +251,6 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     newProducts: "新品推荐",
     viewAll: "查看全部 →",
     popularCategories: "热门分类",
-    ourServices: "我们的服务",
-    personalShopping: "代购服务",
-    personalShoppingDesc: "帮您在塔什干范围内购买所需商品。",
-    delivery: "塔什干配送",
-    deliveryDesc: "超市商品支持塔什干市内配送。",
     contactUs: "联系我们",
     contactDesc: "如有商品、配送或订单问题，请通过以下方式联系我们。",
     phone: "电话",
@@ -286,6 +275,9 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     customerAddress: "配送地址",
     note: "备注",
     orderSuccess: "订单已提交",
+    orderSaveHint: "订单已提交，请复制或截图保存订单信息",
+    copyOrder: "复制订单内容",
+    storeIntro: "店铺介绍",
     noProducts: "未找到商品",
     sortBy: "排序",
     sortDefault: "默认",
@@ -360,16 +352,16 @@ export function getDefaultChannel(locale: Locale): "wechat" | "telegram" {
 
 export function formatMinOrderHint(locale: Locale, amount: number): string {
   const formatted = amount.toLocaleString("ru-RU");
-  if (locale === "zh") return `最低起送 ${formatted} UZS`;
-  if (locale === "uz") return `Minimal buyurtma: ${formatted} UZS`;
-  return `Минимальная сумма заказа: ${formatted} UZS`;
+  if (locale === "zh") return `最低起送 ${formatted} som`;
+  if (locale === "uz") return `Minimal buyurtma: ${formatted} som`;
+  return `Минимальная сумма заказа: ${formatted} som`;
 }
 
 export function formatMinOrderNotMet(locale: Locale, remaining: number): string {
   const formatted = remaining.toLocaleString("ru-RU");
-  if (locale === "zh") return `还差 ${formatted} UZS 才能下单`;
-  if (locale === "uz") return `Buyurtma berish uchun yana ${formatted} UZS kerak`;
-  return `Для заказа не хватает ${formatted} UZS`;
+  if (locale === "zh") return `还差 ${formatted} som 才能下单`;
+  if (locale === "uz") return `Buyurtma berish uchun yana ${formatted} som kerak`;
+  return `Для заказа не хватает ${formatted} som`;
 }
 
 const ORDER_STATUS_TEXT: Record<Locale, Record<OrderStatus, string>> = {

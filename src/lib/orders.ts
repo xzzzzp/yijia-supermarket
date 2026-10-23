@@ -3,6 +3,7 @@ import type { Product } from "@/types/product";
 import { validateCustomerContact } from "@/lib/order-contact";
 import { getProductName, getProductSpec } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
+import { formatPrice } from "@/lib/price";
 
 export function buildOrderItems(
   items: { productId: string; quantity: number }[],
@@ -37,10 +38,10 @@ export function buildOrderText(
     lines.push("【亿佳超市 订单】");
     items.forEach((item, idx) => {
       lines.push(
-        `${idx + 1}. ${item.name} (${item.spec}) x${item.quantity} — ${item.price.toLocaleString()} UZS`,
+        `${idx + 1}. ${item.name} (${item.spec}) x${item.quantity} — ${formatPrice(item.price)}`,
       );
     });
-    lines.push(`合计：${total.toLocaleString()} UZS`);
+    lines.push(`合计：${formatPrice(total)}`);
     if (extra?.name) lines.push(`姓名：${extra.name}`);
     if (extra?.phone) lines.push(`电话：${extra.phone}`);
     if (extra?.address) lines.push(`地址：${extra.address}`);
@@ -49,10 +50,10 @@ export function buildOrderText(
     lines.push("【Yijia Supermarket — Buyurtma】");
     items.forEach((item, idx) => {
       lines.push(
-        `${idx + 1}. ${item.name} (${item.spec}) x${item.quantity} — ${item.price.toLocaleString()} UZS`,
+        `${idx + 1}. ${item.name} (${item.spec}) x${item.quantity} — ${formatPrice(item.price)}`,
       );
     });
-    lines.push(`Jami: ${total.toLocaleString()} UZS`);
+    lines.push(`Jami: ${formatPrice(total)}`);
     if (extra?.name) lines.push(`Ism: ${extra.name}`);
     if (extra?.phone) lines.push(`Telefon: ${extra.phone}`);
     if (extra?.address) lines.push(`Manzil: ${extra.address}`);
