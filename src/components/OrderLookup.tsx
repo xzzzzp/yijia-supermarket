@@ -4,6 +4,7 @@ import { useState } from "react";
 import { orderStatusLabel, type Locale } from "@/lib/i18n";
 import { apiPath } from "@/lib/paths";
 import { formatPrice } from "@/lib/products";
+import { formatTashkentDate } from "@/lib/tashkent-time";
 import type { PublicOrder } from "@/lib/order-lookup";
 import type { OrderStatus } from "@/types/order";
 import { useLanguage } from "@/providers/LanguageProvider";
@@ -24,13 +25,7 @@ function formatWhen(iso: string | null, locale: Locale): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
   const tag = locale === "zh" ? "zh-CN" : locale === "uz" ? "uz-UZ" : "ru-RU";
-  return date.toLocaleString(tag, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatTashkentDate(iso, { locale: tag });
 }
 
 export function OrderLookup({

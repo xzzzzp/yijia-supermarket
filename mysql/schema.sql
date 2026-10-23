@@ -12,6 +12,11 @@
 -- 另有 product_categories（商品分类）、order_notifications（站内接单通知，仅 in_app）
 -- 和 audit_logs（后台操作日志）。
 --
+-- DATETIME 列存 UTC 墙钟，本身不带时区。应用连接会 SET time_zone = '+00:00'，
+-- 驱动按 timezone 'Z' 读写，因此 CURRENT_TIMESTAMP 与 UTC_TIMESTAMP 一致。
+-- 界面统一显示 Asia/Tashkent（UTC+5），不跟浏览器时区，也不写死上海。
+-- 已有库里按上海墙钟写入的列，见 mysql/migrations/20261023_utc_timestamps.sql。
+--
 -- 下面的种子含中文和西里尔字母。先固定本次会话的客户端字符集，
 -- 避免 mysql 客户端默认 latin1 时把 UTF-8 字节写成乱码。
 
