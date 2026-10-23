@@ -65,6 +65,7 @@ export function OrderTable({
   const [isPending, startTransition] = useTransition();
   const [appliedFocus, setAppliedFocus] = useState(focusOrderId);
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const cardRefs = useRef(new Map<string, HTMLElement>());
   const focusScrolled = useRef<string | null>(null);
 
   if (appliedFocus !== focusOrderId) {
@@ -96,11 +97,21 @@ export function OrderTable({
   useEffect(() => {
     if (!focusOrderId || focusMissing) return;
     if (focusScrolled.current === focusOrderId) return;
-    const row = rowRefs.current.get(focusOrderId);
-    if (!row) return;
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    const target = mobile ? cardRefs.current.get(focusOrderId) : rowRefs.current.get(focusOrderId);
+    if (!target) return;
     focusScrolled.current = focusOrderId;
-    row.scrollIntoView({ block: "start" });
+    target.scrollIntoView({ block: "start" });
   }, [focusOrderId, focusMissing, filtered]);
+
+  const copyDelivery = async (orderId: string, deliveryText: string) => {
+    const ok = await copyText(deliveryText);
+    if (ok) {
+      setCopiedId(orderId);
+      return;
+    }
+    window.prompt("复制失败，请手动复制：", deliveryText);
+  };
 
   const handleTransition = (orderId: string, status: OrderStatus) => {
     setPendingId(orderId);
@@ -127,8 +138,11 @@ export function OrderTable({
   return (
     <div className="space-y-4">
       {notificationsEnabled && (
-        <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-          已开启接单通知。新订单会在几秒内出现在这个列表，右上角铃铛也会更新未读数。关掉页面再打开，仍可在铃铛里看到以往的站内通知。
+        <p className="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 md:px-4 md:py-3">
+          <span className="block truncate md:hidden">已开启接单通知，请看列表和铃铛。</span>
+          <span className="hidden md:inline">
+            已开启接单通知。新订单会在几秒内出现在这个列表，右上角铃铛也会更新未读数。关掉页面再打开，仍可在铃铛里看到以往的站内通知。
+          </span>
         </p>
       )}
 
@@ -139,13 +153,13 @@ export function OrderTable({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setStatusFilter(tab.key)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            className={`max-md:shrink-0 max-md:whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition ${
               statusFilter === tab.key
                 ? "bg-red-600 text-white"
                 : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -171,7 +185,138 @@ export function OrderTable({
           暂无订单。客户提交订单后会显示在这里。
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <>
+        <div className="space-y-3 md:hidden">
+          {filtered.map((order) => {
+            const rowPending = isPending && pendingId === order.id;
+            const deliveryText = formatDeliveryBlock(order);
+            const next = nextOrderStatus(order.status);
+            const previous = previousOrderStatus(order.status);
+            const focused = order.id === focusOrderId;
+            return (
+              <article
+                key={order.id}
+                ref={(node) => {
+                  if (node) cardRefs.current.set(order.id, node);
+                  else cardRefs.current.delete(order.id);
+                }}
+                data-focused={focused ? "true" : undefined}
+                className={`scroll-mt-24 rounded-2xl border bg-white p-4 shadow-sm ${
+                  focused ? "border-amber-400 bg-amber-50 outline outline-2 outline-offset-2 outline-amber-400" : "border-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span
+                    title={ORDER_STATUS_HINTS[order.status]}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_BADGE[order.status]}`}
+                  >
+                    {ORDER_STATUS_LABELS[order.status]}
+                  </span>
+                  <span className="shrink-0 text-base font-bold whitespace-nowrap text-red-600">
+                    {formatPrice(order.total)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{formatDate(order.createdAt)}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span className="font-semibold break-words text-slate-900">{order.customerName || "—"}</span>
+                  <span className="text-slate-700">{order.customerPhone || "—"}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      order.channel === "wechat" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {channelLabel(order.channel)}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-3 text-sm text-slate-700">
+                  <p>
+                    <span className="font-semibold text-slate-900">履约：</span>
+                    {ORDER_STATUS_HINTS[order.status]}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-900">回款时间：</span>
+                    {order.completedAt ? formatDate(order.completedAt) : "—"}
+                  </p>
+                  <div>
+                    <p className="font-semibold text-slate-900">配送信息</p>
+                    <pre className="mt-1 rounded-lg bg-slate-50 p-3 text-xs break-words whitespace-pre-wrap">{deliveryText}</pre>
+                    <button
+                      type="button"
+                      onClick={() => void copyDelivery(order.id, deliveryText)}
+                      className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      {copiedId === order.id ? "已复制" : "复制配送信息"}
+                    </button>
+                  </div>
+                  {order.note ? (
+                    <p className="break-words">
+                      <span className="font-semibold text-slate-900">备注：</span>
+                      {order.note}
+                    </p>
+                  ) : null}
+                  <div className="space-y-2">
+                    {order.items.map((item, idx) => (
+                      <div key={`${order.id}-${idx}`} className="rounded-xl bg-slate-50 p-3">
+                        <p className="w-full text-left text-sm leading-6 font-semibold break-words text-slate-900">
+                          {item.name}
+                        </p>
+                        <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="shrink-0">规格</dt>
+                            <dd className="min-w-0 text-right font-medium break-words text-slate-800">
+                              {displayOrDash(item.spec)}
+                            </dd>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="shrink-0">数量</dt>
+                            <dd className="text-right font-medium text-slate-800">{item.quantity}</dd>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="shrink-0">单价</dt>
+                            <dd className="text-right font-medium whitespace-nowrap text-slate-800">
+                              {formatPrice(item.price)}
+                            </dd>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-3">
+                            <dt className="shrink-0">小计</dt>
+                            <dd className="text-right font-semibold whitespace-nowrap text-slate-900">
+                              {formatPrice(item.price * item.quantity)}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {canFulfill && (next || previous) ? (
+                  <div className="mt-4 grid gap-2 border-t border-slate-100 pt-3">
+                    {next && (
+                      <button
+                        type="button"
+                        disabled={rowPending}
+                        onClick={() => handleTransition(order.id, next)}
+                        className="flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {rowPending ? "处理中…" : `推进至${ORDER_STATUS_LABELS[next]}`}
+                      </button>
+                    )}
+                    {previous && (
+                      <button
+                        type="button"
+                        disabled={rowPending}
+                        onClick={() => handleTransition(order.id, previous)}
+                        className="flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {rowPending ? "处理中…" : `退回至${ORDER_STATUS_LABELS[previous]}`}
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
@@ -271,14 +416,7 @@ export function OrderTable({
                               <p className="font-semibold text-slate-900">配送信息</p>
                               <button
                                 type="button"
-                                onClick={async () => {
-                                  const ok = await copyText(deliveryText);
-                                  if (ok) {
-                                    setCopiedId(order.id);
-                                    return;
-                                  }
-                                  window.prompt("复制失败，请手动复制：", deliveryText);
-                                }}
+                                onClick={() => void copyDelivery(order.id, deliveryText)}
                                 className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                               >
                                 {copiedId === order.id ? "已复制" : "复制配送信息"}
@@ -325,6 +463,7 @@ export function OrderTable({
             </table>
           </div>
         </div>
+        </>
       )}
 
       {orders.length > 0 && filtered.length === 0 && (
