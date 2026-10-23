@@ -4,7 +4,7 @@ import { useState } from "react";
 import { orderStatusLabel, type Locale } from "@/lib/i18n";
 import { apiPath } from "@/lib/paths";
 import { formatPrice } from "@/lib/products";
-import type { LookupErrorCode, PublicOrder } from "@/lib/order-lookup";
+import type { PublicOrder } from "@/lib/order-lookup";
 import type { OrderStatus } from "@/types/order";
 import { useLanguage } from "@/providers/LanguageProvider";
 
@@ -48,12 +48,6 @@ export function OrderLookup({
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const errorText = (code: LookupErrorCode | undefined) => {
-    if (code === "not_found") return t("lookupNotFound");
-    if (code === "mismatch") return t("lookupMismatch");
-    return t("lookupNeedQuery");
-  };
-
   const runLookup = async (nextPhone: string, nextOrderId: string) => {
     setLoading(true);
     setError("");
@@ -64,16 +58,16 @@ export function OrderLookup({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: nextPhone, orderId: nextOrderId }),
       });
-      const data = (await res.json()) as { ok?: boolean; code?: LookupErrorCode; orders?: PublicOrder[] };
-      if (!data.ok) {
+      const data = (await res.json()) as { ok?: boolean; orders?: PublicOrder[] };
+      if (!res.ok || !data.ok) {
         setOrders(null);
-        setError(errorText(data.code));
+        setError(t("lookupNotFound"));
         return;
       }
       setOrders(data.orders ?? []);
     } catch {
       setOrders(null);
-      setError(t("lookupNeedQuery"));
+      setError(t("lookupNotFound"));
     } finally {
       setLoading(false);
     }
@@ -93,6 +87,7 @@ export function OrderLookup({
       >
         <input
           type="tel"
+          required
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
           placeholder={t("customerPhone")}
@@ -101,6 +96,7 @@ export function OrderLookup({
         />
         <input
           type="text"
+          required
           value={orderId}
           onChange={(event) => setOrderId(event.target.value)}
           placeholder={t("orderNumber")}
@@ -119,7 +115,7 @@ export function OrderLookup({
 
       {searched && !error && orders?.length === 0 && (
         <p className="rounded-2xl border border-surface-2 bg-white px-6 py-10 text-center text-sm text-muted">
-          {t("lookupEmpty")}
+          {t("lookupNotFound")}
         </p>
       )}
 

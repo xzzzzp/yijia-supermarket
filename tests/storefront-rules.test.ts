@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { validateCustomerContact } from "../src/lib/order-contact.ts";
-import { lookupOrders, normalizeLookupPhone, toPublicOrder } from "../src/lib/order-lookup.ts";
+import {
+  isLookupRateLimited,
+  lookupOrders,
+  lookupRateKey,
+  normalizeLookupPhone,
+  toPublicOrder,
+} from "../src/lib/order-lookup.ts";
+import { getRedirectUrl } from "../src/lib/order-redirect.ts";
 import { activeStorefrontTab } from "../src/lib/storefront-nav.ts";
 import type { OrderRecord } from "../src/types/order.ts";
 
@@ -29,39 +36,52 @@ test("normalizeLookupPhone strips separators and a leading plus", () => {
   assert.equal(normalizeLookupPhone(" +998 (90) 123-45-67 "), "998901234567");
 });
 
-test("phone only returns every order for that phone", () => {
+test("lookup requires order id and checkout phone, and failures look the same", () => {
   const orders = [
-    order({ id: "a", customerPhone: "998901234567" }),
-    order({ id: "b", customerPhone: "+998 90 123-45-67" }),
-    order({ id: "c", customerPhone: "998900000000" }),
+    order({ id: "ABC-1", customerPhone: "+998 90 123-45-67", customerName: "阿强" }),
+    order({ id: "b", customerPhone: "998901234567" }),
   ];
-  const result = lookupOrders(orders, { phone: "998 90 123 45 67" });
-  assert.equal(result.ok, true);
-  if (result.ok) assert.deepEqual(result.orders.map((item) => item.id), ["a", "b"]);
-});
+  const phoneOnly = lookupOrders(orders, { phone: "998 90 123 45 67" });
+  const orderOnly = lookupOrders(orders, { orderId: "abc-1" });
+  const empty = lookupOrders(orders, {});
+  const missingOrder = lookupOrders(orders, { orderId: "missing", phone: "998901234567" });
+  const wrongPhone = lookupOrders(orders, { orderId: "abc-1", phone: "998900000000" });
 
-test("order number only returns that order", () => {
-  const result = lookupOrders([order({ id: "ABC-1" })], { orderId: "abc-1" });
-  assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.orders[0]?.id, "ABC-1");
-});
+  assert.deepEqual(phoneOnly, { ok: false, code: "not_found" });
+  assert.deepEqual(orderOnly, phoneOnly);
+  assert.deepEqual(empty, phoneOnly);
+  assert.deepEqual(missingOrder, phoneOnly);
+  assert.deepEqual(wrongPhone, phoneOnly);
 
-test("phone and order number must match", () => {
-  const orders = [order({ id: "abc", customerPhone: "998901111111" })];
-  const mismatch = lookupOrders(orders, { phone: "998902222222", orderId: "abc" });
-  assert.deepEqual(mismatch, { ok: false, code: "mismatch" });
-  const match = lookupOrders(orders, { phone: "+998 90 111-11-11", orderId: "abc" });
+  const match = lookupOrders(orders, { orderId: "abc-1", phone: "+998 (90) 123-45-67" });
   assert.equal(match.ok, true);
+  if (match.ok) {
+    assert.deepEqual(match.orders.map((item) => item.id), ["ABC-1"]);
+    assert.equal(match.orders[0]?.customerName, "阿强");
+  }
 });
 
-test("missing order and empty query have distinct errors", () => {
-  assert.deepEqual(lookupOrders([], { orderId: "missing" }), { ok: false, code: "not_found" });
-  assert.deepEqual(lookupOrders([], {}), { ok: false, code: "need_query" });
+test("lookup rate limit is per ip and order id", () => {
+  const buckets = new Map();
+  const key = lookupRateKey(" 203.0.113.5 ", "ABC-1");
+  assert.equal(key, lookupRateKey("203.0.113.5", "abc-1"));
+  for (let i = 0; i < 10; i += 1) {
+    assert.equal(isLookupRateLimited(buckets, key, 1_000), false);
+  }
+  assert.equal(isLookupRateLimited(buckets, key, 1_000), true);
+  assert.equal(isLookupRateLimited(buckets, lookupRateKey("203.0.113.5", "other"), 1_000), false);
+  assert.equal(isLookupRateLimited(buckets, key, 1_000 + 60_000), false);
 });
 
-test("phone with no orders is an empty list, not an error", () => {
-  const result = lookupOrders([order({ id: "a" })], { phone: "998900000000" });
-  assert.deepEqual(result, { ok: true, orders: [] });
+test("success redirect query carries only orderId", () => {
+  const orderId = "6f1c1b9a-2d3e-4f5a-8b7c-9d0e1f2a3b4c";
+  const url = getRedirectUrl(orderId);
+  const parsed = new URL(url, "https://shop.local");
+  assert.equal(parsed.pathname, "/order/success");
+  assert.deepEqual([...parsed.searchParams.keys()], ["orderId"]);
+  assert.equal(parsed.searchParams.get("orderId"), orderId);
+  assert.equal(parsed.searchParams.has("text"), false);
+  assert.equal(parsed.searchParams.has("channel"), false);
 });
 
 test("public order omits the request token and adds line totals", () => {

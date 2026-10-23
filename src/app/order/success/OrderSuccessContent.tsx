@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { getTelegramShareUrl } from "@/lib/orders";
+import type { OrderChannel } from "@/types/order";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { useStoreSettings } from "@/providers/StoreSettingsProvider";
 
@@ -36,13 +36,17 @@ async function copyText(value: string): Promise<boolean> {
   }
 }
 
-export default function OrderSuccessContent() {
-  const searchParams = useSearchParams();
+export default function OrderSuccessContent({
+  orderId,
+  channel,
+  orderText,
+}: {
+  orderId: string;
+  channel: OrderChannel | null;
+  orderText: string;
+}) {
   const settings = useStoreSettings();
   const { t } = useLanguage();
-  const channel = searchParams.get("channel");
-  const orderId = searchParams.get("orderId") ?? "";
-  const orderText = searchParams.get("text") ?? "";
   const [copied, setCopied] = useState(false);
   const isWechat = channel === "wechat";
   const isTelegram = channel === "telegram";
