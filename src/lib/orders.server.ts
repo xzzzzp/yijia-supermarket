@@ -109,8 +109,8 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<{ id: stri
       await mysqlExecute(
         `INSERT INTO orders (
            id, channel, status, items, total, customer_name, customer_phone,
-           customer_address, note, order_text, request_token
-         ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`,
+           customer_address, note, order_text, request_token, created_at
+         ) VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(3))`,
         [
           id,
           input.channel,
@@ -225,13 +225,14 @@ export async function updateOrderStatus(
 
   if (isMysqlConfigured()) {
     try {
+      // UTC_TIMESTAMP 不看会话时区。completed_at 与 created_at 都记 MySQL 的 UTC 墙钟，
+      // 不再把 JS Date 交给驱动按连接时区格式化。
+      const completedAtSql = status === "completed" ? "UTC_TIMESTAMP(3)" : "NULL";
       const result = await mysqlExecute(
         expectedStatus
-          ? "UPDATE orders SET status = ?, completed_at = ? WHERE id = ? AND status = ?"
-          : "UPDATE orders SET status = ?, completed_at = ? WHERE id = ?",
-        expectedStatus
-          ? [status, completedAt, orderId, expectedStatus]
-          : [status, completedAt, orderId],
+          ? `UPDATE orders SET status = ?, completed_at = ${completedAtSql} WHERE id = ? AND status = ?`
+          : `UPDATE orders SET status = ?, completed_at = ${completedAtSql} WHERE id = ?`,
+        expectedStatus ? [status, orderId, expectedStatus] : [status, orderId],
       );
       if (result.affectedRows > 0) {
         return { ok: true, message: statusUpdateMessage(status) };

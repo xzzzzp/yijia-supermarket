@@ -9,6 +9,7 @@ import {
   openNotificationOrderAction,
 } from "@/app/admin/notification-actions";
 import { adminOrderFocusPath } from "@/lib/order-focus";
+import { formatTashkentDate } from "@/lib/tashkent-time";
 import type { OrderNotificationView } from "@/types/notification";
 
 function isModifiedClick(event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; button: number }) {
@@ -23,20 +24,6 @@ function isNextRedirect(error: unknown): boolean {
     typeof (error as { digest?: unknown }).digest === "string" &&
     (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("zh-Hans-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 export function NotificationList({
@@ -120,7 +107,7 @@ export function NotificationList({
                     key={item.notificationId}
                     className={`border-b border-slate-100 last:border-b-0 ${unreadRow ? "bg-red-50/60" : ""}`}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">{formatDate(item.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">{formatTashkentDate(item.createdAt)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-900">
                       {canOpenOrders ? (
                         <Link
@@ -169,7 +156,7 @@ export function NotificationList({
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">
-                          {item.readAt ? formatDate(item.readAt) : "—"}
+                          {item.readAt ? formatTashkentDate(item.readAt) : "—"}
                         </span>
                       )}
                     </td>

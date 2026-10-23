@@ -15,6 +15,7 @@ import {
   previousOrderStatus,
 } from "@/lib/order-status";
 import { formatPrice } from "@/lib/products";
+import { formatTashkentDate } from "@/lib/tashkent-time";
 import type { OrderRecord, OrderStatus } from "@/types/order";
 
 interface OrderTableProps {
@@ -32,20 +33,6 @@ const STATUS_BADGE: Record<OrderStatus, string> = {
   delivering: "bg-indigo-100 text-indigo-800",
   completed: "bg-emerald-100 text-emerald-800",
 };
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 function channelLabel(channel: OrderRecord["channel"]): string {
   return channel === "wechat" ? "微信" : "Telegram";
@@ -206,7 +193,7 @@ export function OrderTable({
                       }`}
                     >
                       <td className="px-4 py-3 whitespace-nowrap text-slate-700">
-                        {formatDate(order.createdAt)}
+                        {formatTashkentDate(order.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-slate-900">{order.customerName || "—"}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-slate-700">
@@ -264,7 +251,7 @@ export function OrderTable({
                           </p>
                           <p>
                             <span className="font-semibold text-slate-900">回款时间：</span>
-                            {order.completedAt ? formatDate(order.completedAt) : "—"}
+                            {order.completedAt ? formatTashkentDate(order.completedAt) : "—"}
                           </p>
                           <div>
                             <div className="mb-1 flex items-center gap-2">

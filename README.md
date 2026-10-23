@@ -61,7 +61,7 @@ src/
 4. `staff` 表为空时，用 `ADMIN_DEV_EMAIL` / `ADMIN_DEV_PASSWORD` 登录。只有店主行写入成功才会进入后台
 5. 之后在 `/admin/staff` 为店员设置邮箱、密码和能力。店员用这套邮箱密码登录
 
-本地确认写入：配置好连接后提交一笔订单，再在 MySQL 里 `SELECT id, status FROM orders ORDER BY created_at DESC LIMIT 5;`。把订单推进到已完成，`completed_at` 应有值，营收只计这一状态。
+本地确认写入：配置好连接后提交一笔订单，再在 MySQL 里 `SELECT id, created_at, status FROM orders ORDER BY created_at DESC LIMIT 5;`。`created_at` 应是 UTC 墙钟（塔什干时间减 5 小时）。把订单推进到已完成，`completed_at` 同样是 UTC，营收只计这一状态。后台、订单查询和营业状态按 `Asia/Tashkent` 显示，不跟浏览器时区。
 
 ## 下单流程
 
@@ -174,7 +174,7 @@ MySQL 已配置时，读库失败不会把当前登录者升成店主；第一�
 
 ### 应用数据库变更
 
-在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql`、`mysql/migrations/20261018_orders_request_token_unique.sql`、`mysql/migrations/20261020_drop_awaiting_remittance.sql` 和 `mysql/migrations/20261022_product_recommend_sort.sql`（都可重复执行），补上分类、通知、操作日志、`orders.request_token` 唯一索引、四态订单状态，以及新品推荐排序 `products.recommend_sort`。`20261022` 只增加列和索引，已有新品的推荐排序默认为 0。未执行时，商品写入会提示先跑这条迁移。`20261020` 必须在部署去掉「已收款待回款」的应用之前执行：它把 `awaiting_remittance` 改成 `delivering`（并清空这些行的 `completed_at`），收紧状态约束，且不改写 `audit_logs`。需要 MySQL 8.0.19+（`DROP CHECK`）。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。
+在 MySQL 客户端执行 `mysql/schema.sql`。已有库再执行 `mysql/migrations/20261018_product_categories.sql`、`mysql/migrations/20261018_notifications_and_audit.sql`、`mysql/migrations/20261018_orders_request_token_unique.sql`、`mysql/migrations/20261020_drop_awaiting_remittance.sql`、`mysql/migrations/20261022_product_recommend_sort.sql`，以及在部署会把新时间写成 UTC 的版本之前执行 `mysql/migrations/20261023_utc_timestamps.sql`（文件可重复执行，数据只校准一次）。前面列出的迁移都可重复执行。这些迁移补上分类、通知、操作日志、`orders.request_token` 唯一索引、四态订单状态，以及新品推荐排序 `products.recommend_sort`。`20261022` 只增加列和索引，已有新品的推荐排序默认为 0。未执行时，商品写入会提示先跑这条迁移。`20261020` 必须在部署去掉「已收款待回款」的应用之前执行：它把 `awaiting_remittance` 改成 `delivering`（并清空这些行的 `completed_at`），收紧状态约束，且不改写 `audit_logs`。需要 MySQL 8.0.19+（`DROP CHECK`）。若唯一索引因历史重复 token 失败，先每个 token 只留一笔订单再执行。`schema.sql` 和分类迁移开头有 `SET NAMES utf8mb4`，即使用 latin1 客户端导入，分类中文也不会写坏。已经出现乱码（例如「饮料」变成 `é¥®æ–™`）时，再执行 `mysql/migrations/20261019_repair_product_category_encoding.sql`，可重复执行，只修 `product_categories` 里被 latin1 写坏的文本。`supabase/` 下的 SQL 已停用。未配置 MySQL 时，通知和操作日志写在 `data/notifications.json`、`data/audit-logs.json`。同一 `request_token` 重复提交会返回已有订单，不会再插一笔。`20261023` 把按上海墙钟写入的 `orders.created_at`、`products.created_at` 和 `product_categories` 的 `created_at` / `updated_at` 减 8 小时，改成 UTC 墙钟；不改 `orders.completed_at`，也不改通知、操作日志、店员和店铺设置里由应用 `new Date()` 写入的时间。文件可以再执行，第二次看到 `schema_migrations` 标记后不会重复减。必须在新版本开始把 `created_at` 写成 UTC 之前执行。执行前先确认 `@@global.system_time_zone` 是东八区，并且未改过会话时区时 `TIMESTAMPDIFF(HOUR, UTC_TIMESTAMP(), NOW())` 为 8。细则在迁移文件开头。
 
 ### 商品 CRUD
 

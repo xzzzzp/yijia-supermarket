@@ -1,22 +1,8 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { listAuditLogs } from "@/lib/audit.server";
+import { formatTashkentDate } from "@/lib/tashkent-time";
 import { auditActionLabel, auditTargetLabel } from "@/types/audit";
 import { AccessDenied } from "@/components/admin/AccessDenied";
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("zh-Hans-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 export default async function AdminAuditLogsPage() {
   const user = await requireAdmin();
@@ -60,7 +46,9 @@ export default async function AdminAuditLogsPage() {
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b border-slate-100 align-top last:border-b-0">
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">{formatDate(log.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-700">
+                      {formatTashkentDate(log.createdAt, { withSeconds: true })}
+                    </td>
                     <td className="px-4 py-3 text-slate-900">
                       <div>{log.actorEmail}</div>
                       {log.actorStaffId && (

@@ -1,5 +1,6 @@
 import type { LocalizedText, StoreSettings } from "@/types/settings";
 import { STORE_CONFIG } from "@/lib/config";
+import { tashkentHour } from "@/lib/tashkent-time";
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   minOrderAmount: 0,
@@ -96,8 +97,11 @@ export function parseStoreSettingsForm(formData: FormData): StoreSettings {
   });
 }
 
-export function isStoreOpenNow(settings: Pick<StoreSettings, "businessHoursOpen" | "businessHoursClose">): boolean {
-  const hour = new Date().getHours();
+export function isStoreOpenNow(
+  settings: Pick<StoreSettings, "businessHoursOpen" | "businessHoursClose">,
+  now: Date = new Date(),
+): boolean {
+  const hour = tashkentHour(now);
   const { businessHoursOpen: open, businessHoursClose: close } = settings;
   return hour >= open || hour < close;
 }
