@@ -1,12 +1,29 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
+  openNotificationOrderAction,
 } from "@/app/admin/notification-actions";
+import { adminOrderFocusPath } from "@/lib/order-focus";
 import type { OrderNotificationView } from "@/types/notification";
+
+function isModifiedClick(event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; button: number }) {
+  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+}
+
+function isNextRedirect(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof (error as { digest?: unknown }).digest === "string" &&
+    (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
 
 function formatDate(iso: string): string {
   try {
@@ -22,7 +39,13 @@ function formatDate(iso: string): string {
   }
 }
 
-export function NotificationList({ notifications }: { notifications: OrderNotificationView[] }) {
+export function NotificationList({
+  notifications,
+  canOpenOrders,
+}: {
+  notifications: OrderNotificationView[];
+  canOpenOrders: boolean;
+}) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -35,6 +58,20 @@ export function NotificationList({ notifications }: { notifications: OrderNotifi
       if (!result.ok) alert(result.message);
       else router.refresh();
       setPendingId(null);
+    });
+  };
+
+  const openOrder = (item: OrderNotificationView) => {
+    setPendingId(item.notificationId);
+    startTransition(async () => {
+      try {
+        const result = await openNotificationOrderAction(item.notificationId, item.orderId);
+        if (result && !result.ok) alert(result.message);
+      } catch (error) {
+        if (!isNextRedirect(error)) throw error;
+      } finally {
+        setPendingId(null);
+      }
     });
   };
 
@@ -84,7 +121,32 @@ export function NotificationList({ notifications }: { notifications: OrderNotifi
                     className={`border-b border-slate-100 last:border-b-0 ${unreadRow ? "bg-red-50/60" : ""}`}
                   >
                     <td className="px-4 py-3 whitespace-nowrap text-slate-700">{formatDate(item.createdAt)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{item.orderId}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900">
+                      {canOpenOrders ? (
+                        <Link
+                          href={adminOrderFocusPath(item.orderId)}
+                          aria-label={`打开订单 ${item.orderId}`}
+                          onClick={(event) => {
+                            if (isPending) {
+                              event.preventDefault();
+                              return;
+                            }
+                            if (item.readAt) return;
+                            if (isModifiedClick(event)) {
+                              void markNotificationReadAction(item.notificationId);
+                              return;
+                            }
+                            event.preventDefault();
+                            openOrder(item);
+                          }}
+                          className="font-semibold text-red-700 hover:underline"
+                        >
+                          {item.orderId}
+                        </Link>
+                      ) : (
+                        item.orderId
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-900">{item.customerName || "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span
