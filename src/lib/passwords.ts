@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 
-export const MIN_STAFF_PASSWORD_LENGTH = 6;
+export { MIN_STAFF_PASSWORD_LENGTH } from "./password-policy";
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");

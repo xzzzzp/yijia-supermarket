@@ -3,6 +3,7 @@
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createStaffAction, deleteStaffAction, updateStaffAction } from "@/app/admin/staff-actions";
+import { MIN_STAFF_PASSWORD_LENGTH } from "@/lib/password-policy";
 import type { StaffRecord, StaffStoreSource } from "@/types/staff";
 
 interface StaffManagerProps {
@@ -151,9 +152,9 @@ export function StaffManager({
                 name="password"
                 type="password"
                 required
-                minLength={6}
+                minLength={MIN_STAFF_PASSWORD_LENGTH}
                 autoComplete="new-password"
-                placeholder="至少 6 位"
+                placeholder={`至少 ${MIN_STAFF_PASSWORD_LENGTH} 位`}
                 className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
               />
             </label>
@@ -228,7 +229,8 @@ export function StaffManager({
                         name="password"
                         type="password"
                         autoComplete="new-password"
-                        placeholder="留空则不修改"
+                        minLength={MIN_STAFF_PASSWORD_LENGTH}
+                        placeholder={`留空则不修改（至少 ${MIN_STAFF_PASSWORD_LENGTH} 位）`}
                         className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-red-500"
                       />
                     </label>

@@ -102,7 +102,9 @@ function LoginContent({
           ? "店员数据没有读成或没有写成，登录已拒绝。请检查 MySQL 连接，并确认已执行 mysql/schema.sql。"
           : urlError === "session"
             ? "无法签发登录会话。请配置 ADMIN_SESSION_SECRET，或在开发环境保留 ADMIN_DEV_PASSWORD。"
-            : "";
+            : urlError === "rate"
+              ? "尝试过于频繁，请稍后再试。"
+              : "";
 
   if (authMode === "none") {
     return (
