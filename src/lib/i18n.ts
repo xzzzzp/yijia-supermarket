@@ -72,10 +72,7 @@ type TranslationKey =
   | "orderLookupHint"
   | "orderNumber"
   | "lookupSubmit"
-  | "lookupNeedQuery"
   | "lookupNotFound"
-  | "lookupMismatch"
-  | "lookupEmpty"
   | "deliveryInfo"
   | "specLabel"
   | "statusLabel"
@@ -151,13 +148,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     lineTotal: "Сумма",
     rememberAddress: "Запомнить адрес",
     orderLookupTitle: "Поиск заказа",
-    orderLookupHint: "Укажите телефон, номер заказа или оба. Если указаны оба, они должны относиться к одному заказу.",
+    orderLookupHint: "Введите телефон, указанный при оформлении, и номер заказа. Заказ откроется только если совпали оба.",
     orderNumber: "Номер заказа",
     lookupSubmit: "Найти",
-    lookupNeedQuery: "Введите телефон или номер заказа",
-    lookupNotFound: "Заказ не найден",
-    lookupMismatch: "Телефон не совпадает с номером заказа",
-    lookupEmpty: "Заказов по этому телефону нет",
+    lookupNotFound: "Заказ не найден. Проверьте номер заказа и телефон",
     deliveryInfo: "Доставка",
     specLabel: "Фасовка",
     statusLabel: "Статус",
@@ -232,13 +226,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     lineTotal: "Summa",
     rememberAddress: "Manzilni eslab qolish",
     orderLookupTitle: "Buyurtmani qidirish",
-    orderLookupHint: "Telefon, buyurtma raqami yoki ikkalasini kiriting. Ikkalasi ham kiritilsa, ular bitta buyurtmaga tegishli bo‘lishi kerak.",
+    orderLookupHint: "Buyurtma berishda ko‘rsatilgan telefon va buyurtma raqamini kiriting. Ikkalasi mos kelsa, buyurtma ochiladi.",
     orderNumber: "Buyurtma raqami",
     lookupSubmit: "Qidirish",
-    lookupNeedQuery: "Telefon yoki buyurtma raqamini kiriting",
-    lookupNotFound: "Buyurtma topilmadi",
-    lookupMismatch: "Telefon buyurtma raqamiga mos kelmaydi",
-    lookupEmpty: "Bu telefon bo‘yicha buyurtma yo‘q",
+    lookupNotFound: "Buyurtma topilmadi. Raqam va telefonni tekshiring",
     deliveryInfo: "Yetkazib berish",
     specLabel: "O‘lchami",
     statusLabel: "Holat",
@@ -313,13 +304,10 @@ const translations: Record<Locale, Record<TranslationKey, string>> = {
     lineTotal: "小计",
     rememberAddress: "记住地址",
     orderLookupTitle: "订单查询",
-    orderLookupHint: "填写电话、订单号，或两者都填。两者都填时必须属于同一笔订单。",
+    orderLookupHint: "请同时填写下单电话和订单号。两项都与订单一致时才能查看。",
     orderNumber: "订单号",
     lookupSubmit: "查询",
-    lookupNeedQuery: "请填写电话或订单号",
-    lookupNotFound: "没有找到该订单",
-    lookupMismatch: "电话与订单号不一致",
-    lookupEmpty: "没有找到该电话的订单",
+    lookupNotFound: "没有找到订单，请核对订单号和下单电话",
     deliveryInfo: "配送信息",
     specLabel: "规格",
     statusLabel: "状态",

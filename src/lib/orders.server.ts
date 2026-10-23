@@ -161,6 +161,23 @@ export async function saveOrderRecord(input: SaveOrderInput): Promise<{ id: stri
   return { id: saved.id, orderText: input.orderText };
 }
 
+export async function fetchOrderById(orderId: string): Promise<OrderRecord | null> {
+  const id = orderId.trim();
+  if (!id) return null;
+
+  if (isMysqlConfigured()) {
+    const rows = await mysqlQuery<OrderRow[]>(
+      "SELECT * FROM orders WHERE id = ? LIMIT 1",
+      [id],
+    );
+    const row = rows[0];
+    return row ? rowToOrderRecord(row) : null;
+  }
+
+  const orders = await readLocalOrders();
+  return orders.find((order) => order.id === id) ?? null;
+}
+
 export async function fetchOrderRecords(): Promise<OrderRecord[]> {
   if (isMysqlConfigured()) {
     const rows = await mysqlQuery<OrderRow[]>(

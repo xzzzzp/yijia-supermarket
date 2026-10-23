@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       requestToken: body.requestToken,
     });
 
-    const redirectUrl = getRedirectUrl(body.channel, saved.orderText, saved.id);
+    const redirectUrl = getRedirectUrl(saved.id);
 
     return NextResponse.json({
       ok: true,
