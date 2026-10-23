@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 import type { RowDataPacket } from "mysql2";
+import { clientAddress } from "@/lib/client-ip";
 import { appendLocalAuditLog, readLocalAuditLogs } from "@/lib/local-data";
 import { isMysqlConfigured, mysqlExecute, mysqlQuery } from "@/lib/mysql";
 import type { AuditAction, AuditLogRecord } from "@/types/audit";
@@ -48,9 +49,8 @@ function clip(value: string, max: number): string {
 async function requestIp(): Promise<string | null> {
   try {
     const headerList = await headers();
-    const forwarded = headerList.get("x-forwarded-for");
-    const candidate = forwarded?.split(",")[0]?.trim() || headerList.get("x-real-ip")?.trim() || "";
-    return candidate ? clip(candidate, 64) : null;
+    const candidate = clientAddress(headerList.get("x-forwarded-for"), headerList.get("x-real-ip"));
+    return candidate || null;
   } catch {
     return null;
   }

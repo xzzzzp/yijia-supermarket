@@ -101,14 +101,14 @@ cp deploy/env.production.example .env.local
 
 - `NEXT_PUBLIC_BASE_PATH=/yijia`
 - 已配置 MySQL（`MYSQL_URL`，或同时有 `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`），或 `ADMIN_DEV_EMAIL` 与 `ADMIN_DEV_PASSWORD` 成对存在
-- 有 `ADMIN_SESSION_SECRET` 或 `ADMIN_DEV_PASSWORD`（用来签发后台会话；生产应使用独立的长随机 `ADMIN_SESSION_SECRET`）
+- 有独立的 `ADMIN_SESSION_SECRET`。不能留空、不能仍是模板占位符 `replace-with-a-long-random-string`、不能与 `ADMIN_DEV_PASSWORD` 相同。生产不会回退到登录密码；`deploy/check-env.sh` 不满足则失败退出，生产进程启动时也会拒绝继续。开发环境仍可在未设置该变量时用 `ADMIN_DEV_PASSWORD` 签发会话
 
 ### 必填环境变量
 
 | 变量 | 作用 |
 |------|------|
 | `MYSQL_HOST`、`MYSQL_DATABASE`、`MYSQL_USER`（以及 `MYSQL_PASSWORD` / `MYSQL_PORT`），或单一 `MYSQL_URL` | 生产库。`getAdminAuthMode()` 据此返回 `mysql` |
-| `ADMIN_SESSION_SECRET` | 后台会话签名。Cookie 名 `yijia-admin-session`，`Path` 为 `NEXT_PUBLIC_BASE_PATH`（`/yijia`）。`Secure` 只在请求的 `X-Forwarded-Proto` 为 `https` 时设置，不要按 `NODE_ENV` 一律加 Secure |
+| `ADMIN_SESSION_SECRET` | 后台会话签名，必须是与登录密码不同的长随机串。Cookie 名 `yijia-admin-session`，`Path` 为 `NEXT_PUBLIC_BASE_PATH`（`/yijia`）。`Secure` 只在请求的 `X-Forwarded-Proto` 为 `https` 时设置，不要按 `NODE_ENV` 一律加 Secure |
 | `ADMIN_DEV_EMAIL`、`ADMIN_DEV_PASSWORD` | `staff` 表为空时创建第一名店主，必须成对填写 |
 | `NEXT_PUBLIC_BASE_PATH` | 固定为 `/yijia`，否则静态资源 404 |
 | `NEXT_PUBLIC_SITE_URL` | 站点对外地址，例如 `http://<主机>/yijia` |

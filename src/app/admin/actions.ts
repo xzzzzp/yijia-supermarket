@@ -2,8 +2,15 @@
 
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
+import { clientAddress } from "@/lib/client-ip";
+import {
+  loginLockRemaining,
+  recordLoginFailure,
+  recordLoginSuccess,
+} from "@/lib/login-rate-limit";
 import { recordAudit } from "@/lib/audit.server";
 import { hasCapability } from "@/lib/staff-access";
 import { clearAdminSession, setAdminSession } from "@/lib/dev-auth";
@@ -72,15 +79,41 @@ function writeAudit(
   });
 }
 
+async function loginClientKey(): Promise<string> {
+  try {
+    const headerList = await headers();
+    return clientAddress(headerList.get("x-forwarded-for"), headerList.get("x-real-ip")) || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function adminLogin(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const attempted = email.toLowerCase() || "（未填写）";
+  const ip = await loginClientKey();
+
+  if (loginLockRemaining(ip) > 0) {
+    await writeAudit(
+      { email: attempted, staffId: null },
+      {
+        action: "login.failed",
+        targetType: "staff",
+        targetId: null,
+        summary: `登录失败（${attempted}）：尝试过于频繁`,
+      },
+    );
+    redirect("/admin/login?error=rate");
+  }
+
   const result = await loginStaff(email, password);
 
   if (!result.ok) {
-    const attempted = email.toLowerCase() || "（未填写）";
-    const reason =
-      result.error === "db"
+    const locked = result.error === "invalid" && recordLoginFailure(ip).locked;
+    const reason = locked
+      ? "尝试过于频繁"
+      : result.error === "db"
         ? "无法读取店员表"
         : result.error === "session"
           ? "无法签发会话"
@@ -94,8 +127,10 @@ export async function adminLogin(formData: FormData) {
         summary: `登录失败（${attempted}）：${reason}`,
       },
     );
-    redirect(`/admin/login?error=${result.error}`);
+    redirect(`/admin/login?error=${locked ? "rate" : result.error}`);
   }
+
+  recordLoginSuccess(ip);
 
   try {
     await setAdminSession({ staffId: result.staffId, email: result.email });

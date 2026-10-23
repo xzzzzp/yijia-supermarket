@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies, headers } from "next/headers";
 import { isMysqlConfigured } from "@/lib/mysql";
 import { getCookiePath } from "@/lib/paths";
+import { resolveSessionSecret } from "@/lib/session-secret";
 
 const SESSION_COOKIE = "yijia-admin-session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -38,8 +39,7 @@ export function verifyDevCredentials(email: string, password: string): boolean {
 }
 
 function sessionSecret(): string | null {
-  const secret = process.env.ADMIN_SESSION_SECRET?.trim() || process.env.ADMIN_DEV_PASSWORD;
-  return secret || null;
+  return resolveSessionSecret();
 }
 
 function sign(payload: string, secret: string): string {

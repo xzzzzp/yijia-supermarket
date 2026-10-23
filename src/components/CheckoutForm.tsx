@@ -24,6 +24,7 @@ import {
   getProductSpec,
 } from "@/lib/i18n";
 import { apiPath } from "@/lib/paths";
+import { sameOriginRelativePath } from "@/lib/safe-redirect";
 import { assetPath } from "@/lib/assets";
 import {
   clearSavedAddress,
@@ -143,11 +144,9 @@ export function CheckoutForm() {
         // token 轮换失败不影响跳转
       }
 
-      if (data.redirectUrl) {
-        const target = data.redirectUrl;
-        window.location.assign(
-          target.startsWith("http://") || target.startsWith("https://") ? target : assetPath(target),
-        );
+      const target = sameOriginRelativePath(data.redirectUrl);
+      if (target) {
+        window.location.assign(assetPath(target));
       }
     } catch (err) {
       console.error("Order submit failed:", err);
