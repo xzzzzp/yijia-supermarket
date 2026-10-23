@@ -61,6 +61,9 @@ async function ensureProductWriter(): Promise<
 
 function revalidateProductPages(category?: string) {
   revalidatePath("/");
+  // 购物车和结算页嵌入同一份目录。漏掉时新商品会从列表里消失，角标仍会计数。
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
   revalidatePath("/admin");
   revalidatePath("/products/new");
   if (category) revalidatePath(`/products/${category}`);
