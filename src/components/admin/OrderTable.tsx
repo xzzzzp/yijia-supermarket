@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { transitionOrderStatusAction } from "@/app/admin/actions";
 import { copyText } from "@/lib/copy-text";
 import { displayOrDash, formatDeliveryBlock } from "@/lib/delivery-block";
 import { computeOrderStats } from "@/lib/order-stats";
+import { orderVisibleInList, resolveOrderFocus, type OrderListFilter } from "@/lib/order-focus";
 import {
   nextOrderStatus,
   ORDER_STATUSES,
@@ -20,9 +21,10 @@ interface OrderTableProps {
   orders: OrderRecord[];
   canFulfill: boolean;
   notificationsEnabled: boolean;
+  focusOrderId?: string | null;
 }
 
-type StatusFilter = "all" | OrderStatus;
+type StatusFilter = OrderListFilter;
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -49,40 +51,56 @@ function channelLabel(channel: OrderRecord["channel"]): string {
   return channel === "wechat" ? "微信" : "Telegram";
 }
 
-export function OrderTable({ orders, canFulfill, notificationsEnabled }: OrderTableProps) {
+export function OrderTable({
+  orders,
+  canFulfill,
+  notificationsEnabled,
+  focusOrderId = null,
+}: OrderTableProps) {
   const router = useRouter();
   const [keyword, setKeyword] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [appliedFocus, setAppliedFocus] = useState(focusOrderId);
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const focusScrolled = useRef<string | null>(null);
+
+  if (appliedFocus !== focusOrderId) {
+    setAppliedFocus(focusOrderId);
+    if (focusOrderId) {
+      const resolution = resolveOrderFocus(
+        orders,
+        focusOrderId,
+        statusFilter,
+        keyword,
+        (status) => ORDER_STATUS_LABELS[status],
+      );
+      if (resolution.found) {
+        if (resolution.statusFilter !== statusFilter) setStatusFilter(resolution.statusFilter);
+        if (resolution.keyword !== keyword) setKeyword(resolution.keyword);
+      }
+    }
+  }
 
   const stats = useMemo(() => computeOrderStats(orders), [orders]);
+  const focusMissing = Boolean(focusOrderId) && !orders.some((order) => order.id === focusOrderId);
 
   const filtered = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
-
-    return orders.filter((order) => {
-      if (statusFilter !== "all" && order.status !== statusFilter) return false;
-      if (!q) return true;
-
-      const haystack = [
-        order.customerName,
-        order.customerPhone,
-        order.customerAddress,
-        order.note,
-        order.orderText,
-        order.channel,
-        order.id,
-        ORDER_STATUS_LABELS[order.status],
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(q);
-    });
+    return orders.filter((order) =>
+      orderVisibleInList(order, statusFilter, keyword, ORDER_STATUS_LABELS[order.status]),
+    );
   }, [orders, keyword, statusFilter]);
+
+  useEffect(() => {
+    if (!focusOrderId || focusMissing) return;
+    if (focusScrolled.current === focusOrderId) return;
+    const row = rowRefs.current.get(focusOrderId);
+    if (!row) return;
+    focusScrolled.current = focusOrderId;
+    row.scrollIntoView({ block: "start" });
+  }, [focusOrderId, focusMissing, filtered]);
 
   const handleTransition = (orderId: string, status: OrderStatus) => {
     setPendingId(orderId);
@@ -111,6 +129,13 @@ export function OrderTable({ orders, canFulfill, notificationsEnabled }: OrderTa
       {notificationsEnabled && (
         <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           已开启接单通知。新订单会在几秒内出现在这个列表，右上角铃铛也会更新未读数。关掉页面再打开，仍可在铃铛里看到以往的站内通知。
+        </p>
+      )}
+
+      {focusMissing && focusOrderId && (
+        <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          未找到订单 <span className="font-mono break-all">{focusOrderId}</span>
+          。请确认编号是否正确，或该订单是否已删除。
         </p>
       )}
 
@@ -166,9 +191,20 @@ export function OrderTable({ orders, canFulfill, notificationsEnabled }: OrderTa
                   const deliveryText = formatDeliveryBlock(order);
                   const next = nextOrderStatus(order.status);
                   const previous = previousOrderStatus(order.status);
+                  const focused = order.id === focusOrderId;
 
                   return (
-                    <tr key={order.id} className="border-b border-slate-100 align-top last:border-b-0">
+                    <tr
+                      key={order.id}
+                      ref={(node) => {
+                        if (node) rowRefs.current.set(order.id, node);
+                        else rowRefs.current.delete(order.id);
+                      }}
+                      data-focused={focused ? "true" : undefined}
+                      className={`scroll-mt-6 border-b border-slate-100 align-top last:border-b-0 ${
+                        focused ? "bg-amber-100 ring-2 ring-inset ring-amber-400" : ""
+                      }`}
+                    >
                       <td className="px-4 py-3 whitespace-nowrap text-slate-700">
                         {formatDate(order.createdAt)}
                       </td>

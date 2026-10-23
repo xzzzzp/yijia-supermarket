@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/admin-auth";
 import { listInAppNotifications } from "@/lib/notifications.server";
-import { hasCapability } from "@/lib/staff-access";
+import { canViewOrders, hasCapability } from "@/lib/staff-access";
 import { AccessDenied } from "@/components/admin/AccessDenied";
 import { NotificationList } from "@/components/admin/NotificationList";
 
@@ -28,7 +28,7 @@ export default async function AdminNotificationsPage() {
           {warning}
         </p>
       )}
-      <NotificationList notifications={notifications} />
+      <NotificationList notifications={notifications} canOpenOrders={canViewOrders(user)} />
     </>
   );
 }

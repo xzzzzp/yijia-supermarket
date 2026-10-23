@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin-auth";
+import { readFocusOrderId } from "@/lib/order-focus";
 import { fetchOrderRecords } from "@/lib/orders.server";
 import { ORDER_STATUSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { canViewOrders, hasCapability } from "@/lib/staff-access";
 import { AccessDenied } from "@/components/admin/AccessDenied";
 import { OrderTable } from "@/components/admin/OrderTable";
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string | string[] }>;
+}) {
   const user = await requireAdmin();
 
   if (!canViewOrders(user)) {
@@ -15,6 +20,7 @@ export default async function AdminOrdersPage() {
     );
   }
 
+  const focusOrderId = readFocusOrderId((await searchParams).focus);
   const orders = await fetchOrderRecords();
   const showStatsLink = hasCapability(user, "viewStats");
 
@@ -40,6 +46,7 @@ export default async function AdminOrdersPage() {
         orders={orders}
         canFulfill={hasCapability(user, "fulfillment")}
         notificationsEnabled={hasCapability(user, "orderNotifications")}
+        focusOrderId={focusOrderId}
       />
     </>
   );
