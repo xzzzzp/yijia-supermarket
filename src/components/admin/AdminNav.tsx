@@ -119,10 +119,10 @@ export function AdminNav({
           className="inline-flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 md:hidden"
           aria-expanded={open}
           aria-controls="admin-menu-drawer"
-          aria-label={open ? "关闭菜单" : "打开菜单"}
+          aria-label="打开菜单"
           onClick={() => setMenuPath(open ? null : path)}
         >
-          {open ? <CloseIcon /> : <MenuIcon />}
+          <MenuIcon />
         </button>
         {links.map((link) => (
           <Link
@@ -165,8 +165,20 @@ export function AdminNav({
             aria-modal="true"
             aria-label="后台菜单"
             tabIndex={-1}
-            className="absolute bottom-0 left-0 flex w-[min(100%,20rem)] flex-col bg-white shadow-xl outline-none"
+            className="animate-admin-drawer motion-reduce:animate-none absolute inset-y-0 left-0 flex w-[min(20rem,calc(100%-3.5rem))] flex-col bg-white shadow-xl outline-none"
           >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-3 py-2">
+              <p className="text-sm font-semibold text-slate-900">后台菜单</p>
+              <button
+                type="button"
+                aria-label="关闭菜单"
+                onClick={closeMenu}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
+              >
+                <CloseIcon />
+                关闭
+              </button>
+            </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
               {links.map((link) => {
                 const current = isCurrentPath(pathname, link.href);
@@ -187,7 +199,7 @@ export function AdminNav({
                 );
               })}
             </div>
-            <form action={logoutAction} method="POST" className="border-t border-slate-200 p-3">
+            <form action={logoutAction} method="POST" className="shrink-0 border-t border-slate-200 p-3">
               <button
                 type="submit"
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"

@@ -55,14 +55,14 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
         <h2 className="text-lg font-bold text-slate-900">批量导入商品图片</h2>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm leading-6 break-words text-slate-600">
           支持拖拽或选择多张图片。开启「自动匹配」后，会按文件名匹配商品的 image 路径或
           source_key 并自动更新图片。
         </p>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="import-category" className="block text-sm font-medium text-slate-700">
               上传分类目录
@@ -81,12 +81,12 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
               <option value="misc">其他 (misc)</option>
             </select>
           </div>
-          <label className="flex items-end gap-2 pb-2 text-sm font-medium text-slate-700">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-700 md:min-h-0 md:items-end md:gap-2 md:rounded-none md:border-0 md:px-0 md:pb-2">
             <input
               type="checkbox"
               checked={autoMatch}
               onChange={(e) => setAutoMatch(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-red-600"
+              className="size-5 rounded border-slate-300 text-red-600 md:size-4"
             />
             自动匹配已有商品并更新图片
           </label>
@@ -99,7 +99,7 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`mt-4 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition ${
+          className={`mt-4 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-4 transition md:p-8 ${
             dragOver
               ? "border-red-400 bg-red-50"
               : "border-slate-200 bg-slate-50 hover:border-red-200"
@@ -114,12 +114,14 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
               event.stopPropagation();
               fileRef.current?.click();
             }}
-            className="mt-3 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50"
+            className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:border-red-300 hover:bg-red-50 md:w-auto"
           >
             选择文件
           </button>
-          <p className="mt-2 text-xs text-slate-500">支持 PNG、JPG、WEBP，可多选。多张图片按文件名排序后上传。</p>
-          <p className="mt-1 max-w-md text-center text-xs leading-5 text-slate-500">
+          <p className="mt-2 text-center text-xs leading-5 break-words text-slate-500">
+            支持 PNG、JPG、WEBP，可多选。多张图片按文件名排序后上传。
+          </p>
+          <p className="mt-1 max-w-md text-center text-xs leading-5 break-words text-slate-500">
             {PRODUCT_IMAGE_UPLOAD_HINT}
           </p>
           <input
@@ -149,7 +151,28 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
       </div>
 
       {results.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <>
+        <div className="space-y-3 md:hidden">
+          {results.map((r, index) => (
+            <article key={`${r.filename}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="font-mono text-xs leading-5 break-all text-slate-800">{r.filename}</p>
+              <div className="mt-2">
+                <StatusBadge status={r.status} />
+              </div>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div>
+                  <dt className="text-slate-500">匹配商品</dt>
+                  <dd className="mt-0.5 leading-6 break-words text-slate-900">{r.productName ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">说明</dt>
+                  <dd className="mt-0.5 text-xs leading-5 break-words text-slate-500">{r.message ?? r.imageUrl ?? "—"}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+        <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50">
               <tr>
@@ -175,6 +198,7 @@ export function ImageBatchImport({ categories }: { categories: CategoryInfo[] })
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

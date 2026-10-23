@@ -34,16 +34,16 @@ export default async function AdminPage() {
         </div>
       )}
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
+      <div className="mb-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between md:gap-0">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-900">商品管理</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm break-words text-slate-600">
             共 {products.length} 个商品。人工新增和编辑是上架主路径。列表可直接改「是否新品推荐」和「推荐排序」，数字越小越靠前。
           </p>
         </div>
         <Link
           href="/admin/products/new"
-          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold whitespace-nowrap text-white hover:bg-red-700 md:min-h-0 md:w-auto"
         >
           + 新增商品
         </Link>
